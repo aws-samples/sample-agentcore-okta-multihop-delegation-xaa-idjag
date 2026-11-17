@@ -1,0 +1,1598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AnyCompany · Agent Identity POC</title>
+<script src="/vendor/tailwind.min.js"></script>
+<script src="/vendor/lucide.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script>
+tailwind.config={theme:{extend:{fontFamily:{sans:["Inter","ui-sans-serif","system-ui","sans-serif"],mono:["ui-monospace","SFMono-Regular","Menlo","monospace"]},
+keyframes:{"fade-in":{"0%":{opacity:"0",transform:"translateY(4px)"},"100%":{opacity:"1",transform:"translateY(0)"}}},animation:{"fade-in":"fade-in .18s ease-out"}}}};
+</script>
+<style>
+  html,body{height:100%}
+  body{margin:0;font-family:Inter,ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased;background:#fafafa;color:#18181b;font-feature-settings:"cv11","ss01"}
+  *{box-sizing:border-box}
+  .text-xs{font-size:13px !important;line-height:1.45 !important}
+  .text-sm{font-size:15px !important;line-height:1.55 !important}
+  .text-base{font-size:17px !important}
+  .text-lg{font-size:20px !important}
+  .text-\[10px\]{font-size:12px !important}
+  .text-\[11px\]{font-size:13px !important}
+  .text-\[12px\]{font-size:13.5px !important}
+  .scroll-thin::-webkit-scrollbar{width:8px;height:8px}.scroll-thin::-webkit-scrollbar-thumb{background:#e4e4e7;border-radius:9999px}
+  [x-view]{display:none}[x-view].on{display:block;animation:fade-in .18s ease-out}
+  @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.35}}.pulse-dot{animation:pulse-dot 1.4s ease-in-out infinite}
+  /* --- AG-UI live flow (same engine as the security demo) --- */
+  .agui-node{transform-box:fill-box;transform-origin:center;transition:opacity .3s ease}
+  svg[data-clickinfo="1"] .agui-node{cursor:pointer}
+  .agui-node.dim{opacity:.4}
+  .agui-node.active{filter:drop-shadow(0 0 4px rgba(59,130,246,.45))}
+  .agui-node.flash{animation:aguiflash 1.1s ease-out}
+  @keyframes aguiflash{0%{filter:drop-shadow(0 0 0 rgba(59,130,246,0))}22%{filter:drop-shadow(0 0 7px rgba(59,130,246,.6));transform:scale(1.035)}100%{filter:drop-shadow(0 0 0 rgba(59,130,246,0));transform:scale(1)}}
+  .agui-conn{transition:stroke-width .3s,opacity .3s;opacity:.55}
+  .agui-conn.lit{opacity:1;stroke-width:2.6}
+  .agui-conn.flow{opacity:1;stroke-width:2.8;stroke-dasharray:6 4;animation:aguidash .5s linear infinite;stroke:#3b82f6}
+  .agui-conn.flow[data-conn="cedar-tool"]{stroke:#059669}
+  @keyframes aguidash{to{stroke-dashoffset:-20}}
+  .agui-dot{opacity:0}.agui-dot.active{opacity:1}
+  .agui-conn.denied{opacity:1;stroke:#e11d48 !important;stroke-width:2.2;stroke-dasharray:4 3;animation:none}
+  .agui-node.blocked rect{stroke:#e11d48 !important;stroke-width:2;stroke-dasharray:4 3}
+  .agui-node.blocked text.t{fill:#be123c !important}
+  .agui-node.ok rect{stroke:#10b981 !important;stroke-width:2}
+  #agui-tip{pointer-events:none;z-index:50;max-width:300px}
+  .xnode{transition:box-shadow .2s,transform .2s}
+  .xnode:hover{box-shadow:0 0 0 3px rgba(59,130,246,.18);transform:translateY(-1px)}
+</style>
+</head>
+<body>
+<div id="app-shell" class="flex min-h-screen flex-col bg-zinc-50 transition-[margin] duration-300">
+  <header class="sticky top-0 z-40 border-b border-zinc-200 bg-white/85 backdrop-blur">
+    <div class="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-3 px-5 py-2.5">
+      <div class="relative flex items-center gap-2.5" id="app-wrap">
+        <button id="app-btn" type="button" title="Screens" class="flex items-center gap-1 rounded-lg pr-1 hover:bg-zinc-100">
+          <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-900 text-xs font-bold text-white">AC</span>
+          <i data-lucide="chevron-down" class="h-3.5 w-3.5 text-zinc-400"></i>
+        </button>
+        <div id="app-menu" class="hidden absolute left-0 top-full z-50 mt-2 w-80 rounded-xl border border-zinc-200 bg-white p-1.5 shadow-lg"></div>
+        <div class="leading-tight">
+          <div class="text-sm font-semibold text-zinc-900">AnyCompany · Agent Identity POC</div>
+          <div class="text-xs text-zinc-400">Pattern A · OBO/Delegation (token exchange) &nbsp;·&nbsp; Pattern B · Cross App Access (user) &nbsp;·&nbsp; Pattern C · Cross App Access (machine) &nbsp;·&nbsp; AgentCore + Okta</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="relative" id="user-wrap">
+          <button id="user-btn" type="button" class="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-600 hover:border-zinc-300">
+            <i data-lucide="user" class="h-3.5 w-3.5 text-zinc-400"></i> <span id="user-txt">not signed in</span>
+            <i data-lucide="chevron-down" class="h-3 w-3 text-zinc-400"></i>
+          </button>
+          <div id="user-menu" class="hidden absolute right-0 top-full z-50 mt-2 w-80 rounded-xl border border-zinc-200 bg-white p-3 text-left shadow-lg"></div>
+        </div>
+        <span class="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-600">
+          <i data-lucide="cloud" class="h-3.5 w-3.5 text-zinc-400"></i><span id="acct-txt">…</span></span>
+      </div>
+    </div>
+  </header>
+
+  <div class="mx-auto flex w-full max-w-[1500px] flex-1 gap-6 px-5 py-5">
+    <main class="min-w-0 flex-1">
+
+      <div x-view="intro" class="space-y-6">
+        <div>
+          <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-blue-600">Overview</div>
+          <h2 class="text-lg font-semibold tracking-tight text-zinc-900">An agent acting for someone else: three patterns</h2>
+          <p class="mt-1 text-sm text-zinc-500">Each pattern answers one question: whom does the agent act for, and who decides it may? Hover a line for the detail.</p>
+        </div>
+        <div id="intro-cards" class="grid grid-cols-1 gap-4 lg:grid-cols-3"></div>
+        <div class="rounded-xl border border-zinc-200 bg-white p-4 text-[13.5px] text-zinc-600 shadow-sm">
+          <b class="text-zinc-900">Common to all three:</b> AgentCore Runtime runs the agent, AgentCore Identity gets its tokens (no Okta code or key in the agent), and every token names the person or app the agent acts for (<code>sub</code>) and each actor on the way (<code>act</code>).
+        </div>
+      </div>
+
+      <div x-view="explainb" class="space-y-6">
+        <div>
+          <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-indigo-600">Pattern A · OBO/Delegation (token exchange)</div>
+          <h2 class="text-lg font-semibold tracking-tight text-zinc-900">The agent acts on behalf of the engineer</h2>
+          <p class="mt-1 text-sm text-zinc-500">Click a block for the key points.</p>
+        </div>
+        <div class="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm"><div id="xflowb" class="flex items-center gap-1"></div></div>
+        <div class="grid grid-cols-3 gap-4" id="xlegendb"></div>
+        <div id="trust-b"></div>
+        <div id="code-b"></div>
+      </div>
+
+      <!-- ============ PATTERN B · Live ============ -->
+      <div x-view="liveb" class="space-y-5">
+        <div>
+          <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-indigo-600">Live · Pattern A</div>
+          <h2 class="text-lg font-semibold tracking-tight text-zinc-900">Same agent, acting as the signed-in engineer</h2>
+        </div>
+        <div id="live-pending-b" class="hidden rounded-xl border border-amber-200 bg-amber-50/60 p-4 flex items-start gap-3">
+          <i data-lucide="clock" class="mt-0.5 h-4 w-4 shrink-0 text-amber-600"></i>
+          <div class="text-sm text-amber-900/80"><span class="font-semibold text-amber-800">Deploy pending.</span> Run <code>.venv/bin/python deploy.py</code> first (see the README).</div>
+        </div>
+        <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          <div class="rounded-xl border border-zinc-200 bg-white shadow-sm flex flex-col" style="min-height:720px">
+            <div class="flex items-center gap-2 border-b border-zinc-100 px-4 py-2.5">
+              <i data-lucide="message-square" class="h-4 w-4 text-indigo-500"></i>
+              <span class="text-sm font-semibold text-zinc-900">PR Review Agent · on behalf of you</span>
+              <span id="chat-gate-b" class="ml-auto inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] font-medium text-zinc-400"></span>
+            </div>
+            <div class="p-4 space-y-3 border-b border-zinc-100">
+              <div id="signin-row-b" class="flex items-center gap-3 flex-wrap"></div>
+              <div class="flex flex-wrap gap-2" id="prompt-chips-b"></div>
+            </div>
+            <div id="chat-b" class="scroll-thin flex-1 overflow-auto p-4 space-y-3" style="max-height:560px"></div>
+            <div class="border-t border-zinc-100 p-3 flex gap-2">
+              <textarea id="chat-input-b" rows="2" class="flex-1 resize-none rounded-lg border border-zinc-200 bg-zinc-50/60 p-2.5 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/30" placeholder="Ask the agent to act for you…"></textarea>
+              <button id="btn-send-b" class="inline-flex items-center gap-1.5 self-end rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-40"><i data-lucide="send" class="h-4 w-4"></i> Send</button>
+            </div>
+          </div>
+          <div class="rounded-xl border border-zinc-200 bg-white shadow-sm">
+            <div class="flex items-center gap-2 border-b border-zinc-100 px-4 py-2.5">
+              <i data-lucide="activity" class="h-4 w-4 text-orange-500"></i>
+              <span class="text-sm font-semibold text-zinc-900">Agent flow</span>
+              <span class="text-[11px] text-zinc-400">· live via AG-UI events · click a block for details</span>
+              <span id="agui-status-b" class="ml-auto inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] font-medium text-zinc-400">idle</span>
+            </div>
+            <div class="p-3">
+              <svg id="agui-svg-b" data-clickinfo="1" viewBox="0 0 460 684" class="w-full" style="max-height:840px">
+                <path class="agui-conn" data-conn="user-okta"  fill="none" stroke="#d4d4d8" stroke-width="1.6" d="M230,48 L230,72"/>
+                <path class="agui-conn" data-conn="okta-backend" fill="none" stroke="#c4b5fd" stroke-width="1.6" d="M230,116 L230,142"/>
+                <path class="agui-conn" data-conn="backend-agent" fill="none" stroke="#c4b5fd" stroke-width="1.6" d="M230,186 L230,214"/>
+                <path class="agui-conn" data-conn="agent-exch" fill="none" stroke="#93c5fd" stroke-width="1.6" d="M230,308 L230,334"/>
+                <path class="agui-conn" data-conn="exch-gw"    fill="none" stroke="#a5b4fc" stroke-width="1.6" d="M230,378 L230,406"/>
+                <path class="agui-conn" data-conn="gw-int"     fill="none" stroke="#fdba74" stroke-width="1.6" d="M230,450 L230,478"/>
+                <path class="agui-conn" data-conn="int-cedar"  fill="none" stroke="#5eead4" stroke-width="1.6" d="M230,522 L230,550"/>
+                <path class="agui-conn" data-conn="cedar-tool" fill="none" stroke="#a5b4fc" stroke-width="1.6" d="M230,594 L230,624"/>
+                <g fill="#a1a1aa"><polygon points="226,142 234,142 230,147"/><polygon points="226,72 234,72 230,77"/><polygon points="226,214 234,214 230,219"/><polygon points="226,334 234,334 230,339"/>
+                  <polygon points="226,406 234,406 230,411"/><polygon points="226,478 234,478 230,483"/><polygon points="226,550 234,550 230,555"/><polygon points="226,624 234,624 230,629"/></g>
+                <text x="240" y="64" style="font-size:8px;fill:#71717a">sign in</text>
+                <g class="agui-node" data-node="b:t1"><rect x="236" y="124" width="112" height="13" rx="3" fill="#fff" stroke="#ddd6fe"/><text x="240" y="133" style="font-size:8px;fill:#7c3aed">T1 · Ada's sign-in token ›</text></g>
+                <g class="agui-node" data-node="jwt"><rect x="236" y="196" width="176" height="13" rx="3" fill="#fff" stroke="#ddd6fe"/><text x="240" y="205" style="font-size:8px;fill:#7c3aed">T2 · Bearer for Runtime A (act = backend) ›</text></g>
+                <text x="240" y="325" style="font-size:8px;fill:#2563eb">subject token (T2)</text>
+                <g class="agui-node" data-node="b:obotoken"><rect x="236" y="388" width="176" height="13" rx="3" fill="#fff" stroke="#c7d2fe"/><text x="240" y="397" style="font-size:8px;fill:#4f46e5">Bearer · T3 (sub = engineer, cid = agent) ›</text></g>
+                <text x="240" y="469" style="font-size:8px;fill:#c2410c">every tools/call</text>
+                <text x="240" y="541" style="font-size:8px;fill:#0f766e">caller.user stamped from the token</text>
+                <text x="240" y="613" style="font-size:8px;fill:#4f46e5">permit → tool runs as the engineer</text>
+                <g class="agui-node" data-node="user"><rect x="170" y="14" width="120" height="34" rx="8" fill="#f4f4f5" stroke="#e4e4e7"/>
+                  <text class="t" x="230" y="35" text-anchor="middle" style="font-size:11px;font-weight:600;fill:#18181b">Engineer</text></g>
+                <g class="agui-node" data-node="okta"><rect x="80" y="72" width="300" height="44" rx="9" fill="#f5f3ff" stroke="#ddd6fe"/>
+                  <text class="t" x="94" y="91" style="font-size:10px;font-weight:600;fill:#18181b">Okta · anyco-users-as</text>
+                  <text x="94" y="105" style="font-size:8px;fill:#52525b">sign-in · only engineers get pr-agent.invoke</text></g>
+                <g class="agui-node" data-node="b:backend"><rect x="80" y="142" width="300" height="44" rx="9" fill="#faf5ff" stroke="#e9d5ff"/>
+                  <text class="t" x="94" y="161" style="font-size:10px;font-weight:600;fill:#18181b">Your backend · token exchange (anyco-console-backend-app)</text>
+                  <text id="backend-sub-b" x="94" y="175" style="font-size:8px;fill:#52525b">T1 → T2 at anyco-agent-a-as · RFC 8693 · one step</text></g>
+                <g class="agui-node" data-node="b:agent"><rect x="60" y="214" width="340" height="94" rx="10" fill="#eff6ff" stroke="#bfdbfe"/>
+                  <text class="t" x="74" y="233" style="font-size:10px;font-weight:600;fill:#18181b">PR Review Agent · Strands</text>
+                  <text x="74" y="246" style="font-size:8px;fill:#52525b">Runtime A · AG-UI · CUSTOM_JWT inbound</text>
+                  <rect x="300" y="222" width="90" height="18" rx="9" fill="#4f46e5"/>
+                  <text id="agent-rel-b" x="345" y="234" text-anchor="middle" style="font-size:8.5px;font-weight:700;fill:#fff">acts for ?</text>
+                  <g class="agui-node" data-node="tool:get_pull_request"><rect x="74" y="262" width="104" height="22" rx="5" fill="#fff" stroke="#bfdbfe"/>
+                    <text class="t" x="126" y="276" text-anchor="middle" style="font-size:7.5px;font-family:monospace;fill:#18181b">get_pull_request</text></g>
+                  <g class="agui-node" data-node="tool:post_review"><rect x="184" y="262" width="92" height="22" rx="5" fill="#fff" stroke="#bfdbfe"/>
+                    <text class="t" x="230" y="276" text-anchor="middle" style="font-size:7.5px;font-family:monospace;fill:#18181b">post_review</text></g>
+                  <g class="agui-node" data-node="tool:list_my_reviews"><rect x="282" y="262" width="104" height="22" rx="5" fill="#fff" stroke="#bfdbfe"/>
+                    <text class="t" x="334" y="276" text-anchor="middle" style="font-size:7.5px;font-family:monospace;fill:#18181b">list_my_reviews</text></g>
+                  <text x="74" y="300" style="font-size:7.5px;fill:#71717a">tools from the Gateway tools/list</text></g>
+                <g class="agui-node" data-node="exchange"><rect x="80" y="334" width="300" height="44" rx="9" fill="#eef2ff" stroke="#c7d2fe"/>
+                  <text class="t" x="94" y="353" style="font-size:10px;font-weight:600;fill:#18181b">AgentCore Identity ⇄ Okta · token exchange</text>
+                  <text x="94" y="367" style="font-size:8px;fill:#52525b">RFC 8693 token exchange · Okta adds act · aud api://anyco-gateway-aud</text></g>
+                <g class="agui-node" data-node="b:gateway"><rect x="80" y="406" width="300" height="44" rx="9" fill="#fff7ed" stroke="#fed7aa"/>
+                  <text class="t" x="94" y="425" style="font-size:10px;font-weight:600;fill:#18181b">AgentCore Gateway</text>
+                  <text x="94" y="439" style="font-size:8px;fill:#52525b">MCP · CUSTOM_JWT · verifies the OBO token</text></g>
+                <g class="agui-node" data-node="b:interceptor"><rect x="80" y="478" width="300" height="44" rx="9" fill="#f0fdfa" stroke="#99f6e4"/>
+                  <text class="t" x="94" y="497" style="font-size:10px;font-weight:600;fill:#18181b">Lambda interceptor</text>
+                  <text id="int-sub-b" x="94" y="511" style="font-size:8px;fill:#52525b">token claims → caller.user · client_id</text></g>
+                <g class="agui-node" data-node="b:cedar"><rect x="80" y="550" width="300" height="44" rx="9" fill="#eef2ff" stroke="#c7d2fe"/>
+                  <text class="t" x="94" y="569" style="font-size:10px;font-weight:600;fill:#18181b">AgentCore Policy · Cedar</text>
+                  <text id="cedar-sub-b" x="94" y="583" style="font-size:8px;fill:#52525b">cid = agent · backend in act · uid · scope</text></g>
+                <g class="agui-node" data-node="b:tools"><rect x="80" y="624" width="300" height="44" rx="9" fill="#ecfdf5" stroke="#a7f3d0"/>
+                  <text class="t" x="94" y="643" style="font-size:10px;font-weight:600;fill:#18181b">Tool Lambdas</text>
+                  <text x="94" y="657" style="font-size:8px;fill:#52525b">post and list as the engineer</text></g>
+                <circle data-dot="user-okta" class="agui-dot" r="4" fill="#a1a1aa"><animateMotion dur=".4s" fill="freeze" begin="indefinite" path="M230,48 L230,72"/></circle>
+                <circle data-dot="okta-backend" class="agui-dot" r="4" fill="#8b5cf6"><animateMotion dur=".4s" fill="freeze" begin="indefinite" path="M230,116 L230,142"/></circle>
+                <circle data-dot="backend-agent" class="agui-dot" r="4" fill="#8b5cf6"><animateMotion dur=".4s" fill="freeze" begin="indefinite" path="M230,186 L230,214"/></circle>
+                <circle data-dot="agent-exch" class="agui-dot" r="4" fill="#3b82f6"><animateMotion dur=".4s" fill="freeze" begin="indefinite" path="M230,308 L230,334"/></circle>
+                <circle data-dot="exch-gw" class="agui-dot" r="4" fill="#6366f1"><animateMotion dur=".4s" fill="freeze" begin="indefinite" path="M230,378 L230,406"/></circle>
+                <circle data-dot="gw-int" class="agui-dot" r="4" fill="#fb923c"><animateMotion dur=".4s" fill="freeze" begin="indefinite" path="M230,450 L230,478"/></circle>
+                <circle data-dot="int-cedar" class="agui-dot" r="4" fill="#14b8a6"><animateMotion dur=".4s" fill="freeze" begin="indefinite" path="M230,522 L230,550"/></circle>
+                <circle data-dot="cedar-tool" class="agui-dot" r="4" fill="#10b981"><animateMotion dur=".4s" fill="freeze" begin="indefinite" path="M230,594 L230,624"/></circle>
+              </svg>
+              <div id="agui-ticker-b" class="mt-2 border-t border-zinc-100 pt-2 text-[10px] font-mono text-zinc-400">idle: sign in, send a prompt</div>
+            </div>
+          </div>
+        </div>
+        <!-- Scenario A1: the same exchange, with the Okta AI agent as the client -->
+        <div class="rounded-xl border border-zinc-200 bg-white shadow-sm">
+          <div class="flex flex-wrap items-center gap-2 border-b border-zinc-100 px-4 py-2.5">
+            <i data-lucide="flask-conical" class="h-4 w-4 text-indigo-500"></i>
+            <span class="text-sm font-semibold text-zinc-900">Scenario A1 · the same token exchange, with the Okta AI agent as the client</span>
+            <button id="btn-a1" onclick="runA1()" class="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-40"><i data-lucide="play" class="h-3.5 w-3.5"></i> Try A1</button>
+          </div>
+          <div class="p-4">
+            <p class="text-[13px] text-zinc-600">Can a registered Okta AI agent skip Cross App Access and do Pattern A's one-step exchange itself? This sends the agent's request (step 4) to <code>anyco-gateway-as</code>, with the token the agent receives (T2) as the subject, but authenticates as the AI agent (<code>private_key_jwt</code>, signed by its KMS key).</p>
+            <div id="a1-out" class="mt-3 text-[12px] text-zinc-400">Sign in above, then click Try A1.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ Where Pattern A stops (slide) ============ -->
+      <div x-view="gaps" class="space-y-6">
+        <div>
+          <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-rose-600">Why Pattern B</div>
+          <h2 class="text-lg font-semibold tracking-tight text-zinc-900">Where Pattern A stops working</h2>
+          <p class="mt-1 text-sm text-zinc-500">Pattern A is simpler, and enough when every resource is protected by your own Okta org. These are the cases it can't handle. Hover a card for the detail.</p>
+        </div>
+        <div id="gaps-cards" class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"></div>
+        <div class="flex flex-wrap items-center gap-3 rounded-xl border border-fuchsia-200 bg-fuchsia-50/50 p-4">
+          <i data-lucide="git-merge" class="h-5 w-5 text-fuchsia-600"></i>
+          <div class="text-[14px] text-fuchsia-900"><b>Pattern B</b> is the same delegation (the token still names Ada and the agent) but built for these: an Okta AI agent, an <b>ID-JAG</b> from the IdP, and a <b>JWT bearer</b> grant at the resource's own authorization server.</div>
+          <button onclick="setView('delegation')" class="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-fuchsia-600 px-4 py-2 text-sm font-medium text-white hover:bg-fuchsia-700">Next: Pattern B <i data-lucide="arrow-right" class="h-4 w-4"></i></button>
+        </div>
+      </div>
+
+      <!-- ============ Pattern B · Cross App Access (explain) ============ -->
+      <div x-view="delegation" class="space-y-6">
+        <div>
+          <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-fuchsia-600">Pattern B · Cross App Access (user)</div>
+          <h2 class="text-lg font-semibold tracking-tight text-zinc-900">The registered Okta AI agent acts for the engineer, through Cross App Access</h2>
+          <p class="mt-1 text-sm text-zinc-500">Okta for AI Agents · Cross App Access (ID-JAG). Click a block for the key points.</p>
+        </div>
+        <div class="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm"><div id="xflowc" class="flex items-center gap-1"></div></div>
+        <div class="grid grid-cols-3 gap-4" id="xlegendc"></div>
+        <div id="trust-c"></div>
+        <div id="code-c"></div>
+      </div>
+
+      <!-- ============ Pattern B · Cross App Access (live) ============ -->
+      <div x-view="livec" class="space-y-5">
+        <div>
+          <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-fuchsia-600">Live · Pattern B</div>
+          <h2 class="text-lg font-semibold tracking-tight text-zinc-900">Same agent, acting for the engineer as their named delegate</h2>
+        </div>
+        <div id="live-pending-c" class="hidden rounded-xl border border-amber-200 bg-amber-50/60 p-4 flex items-start gap-3">
+          <i data-lucide="clock" class="mt-0.5 h-4 w-4 shrink-0 text-amber-600"></i>
+          <div class="text-sm text-amber-900/80"><span class="font-semibold text-amber-800">Deploy pending.</span> Run <code>.venv/bin/python deploy.py</code> first (see the README).</div>
+        </div>
+        <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          <div class="rounded-xl border border-zinc-200 bg-white shadow-sm flex flex-col" style="min-height:720px">
+            <div class="flex items-center gap-2 border-b border-zinc-100 px-4 py-2.5">
+              <i data-lucide="message-square" class="h-4 w-4 text-fuchsia-500"></i>
+              <span class="text-sm font-semibold text-zinc-900">PR Review Agent · your delegate</span>
+              <span id="chat-gate-c" class="ml-auto inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] font-medium text-zinc-400"></span>
+            </div>
+            <div class="p-4 space-y-3 border-b border-zinc-100">
+              <div id="signin-row-c" class="flex items-center gap-3 flex-wrap"></div>
+              <div class="flex flex-wrap gap-2" id="prompt-chips-c"></div>
+            </div>
+            <div id="chat-c" class="scroll-thin flex-1 overflow-auto p-4 space-y-3" style="max-height:560px"></div>
+            <div class="border-t border-zinc-100 p-3 flex gap-2">
+              <textarea id="chat-input-c" rows="2" class="flex-1 resize-none rounded-lg border border-zinc-200 bg-zinc-50/60 p-2.5 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/30" placeholder="Ask your delegate to act for you…"></textarea>
+              <button id="btn-send-c" class="inline-flex items-center gap-1.5 self-end rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-40"><i data-lucide="send" class="h-4 w-4"></i> Send</button>
+            </div>
+          </div>
+          <div class="rounded-xl border border-zinc-200 bg-white shadow-sm">
+            <div class="flex items-center gap-2 border-b border-zinc-100 px-4 py-2.5">
+              <i data-lucide="activity" class="h-4 w-4 text-orange-500"></i>
+              <span class="text-sm font-semibold text-zinc-900">Agent flow</span>
+              <span class="text-[11px] text-zinc-400">· live via AG-UI events · click a block for details</span>
+              <span id="agui-status-c" class="ml-auto inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] font-medium text-zinc-400">idle</span>
+            </div>
+            <div class="p-3">
+              <svg id="agui-svg-c" data-clickinfo="1" viewBox="0 0 460 756" class="w-full" style="max-height:920px">
+                <path class="agui-conn" data-conn="user-okta"  fill="none" stroke="#d4d4d8" stroke-width="1.6" d="M230,48 L230,72"/>
+                <path class="agui-conn" data-conn="okta-backend-c" fill="none" stroke="#c4b5fd" stroke-width="1.6" d="M230,116 L230,142"/>
+                <path class="agui-conn" data-conn="app-agent" fill="none" stroke="#c4b5fd" stroke-width="1.6" d="M230,186 L230,214"/>
+                <path class="agui-conn" data-conn="agent-xaa"  fill="none" stroke="#f0abfc" stroke-width="1.6" d="M230,308 L230,334"/>
+                <path class="agui-conn" data-conn="xaa-12"     fill="none" stroke="#f0abfc" stroke-width="1.6" d="M230,378 L230,406"/>
+                <path class="agui-conn" data-conn="xaa-gw"     fill="none" stroke="#f0abfc" stroke-width="1.6" d="M230,450 L230,478"/>
+                <path class="agui-conn" data-conn="gw-int"     fill="none" stroke="#fdba74" stroke-width="1.6" d="M230,522 L230,550"/>
+                <path class="agui-conn" data-conn="int-cedar"  fill="none" stroke="#5eead4" stroke-width="1.6" d="M230,594 L230,622"/>
+                <path class="agui-conn" data-conn="cedar-tool" fill="none" stroke="#a5b4fc" stroke-width="1.6" d="M230,666 L230,696"/>
+                <g fill="#a1a1aa"><polygon points="226,142 234,142 230,147"/><polygon points="226,406 234,406 230,411"/><polygon points="226,72 234,72 230,77"/><polygon points="226,214 234,214 230,219"/><polygon points="226,334 234,334 230,339"/>
+                  <polygon points="226,478 234,478 230,483"/><polygon points="226,550 234,550 230,555"/><polygon points="226,622 234,622 230,627"/><polygon points="226,696 234,696 230,701"/></g>
+                <text x="240" y="64" style="font-size:8px;fill:#71717a">sign in (anyco-eng-login-app)</text>
+                <g class="agui-node" data-node="c:t1"><rect x="236" y="124" width="112" height="13" rx="3" fill="#fff" stroke="#ddd6fe"/><text x="240" y="133" style="font-size:8px;fill:#7c3aed">T1 · Ada's sign-in token ›</text></g>
+                <g class="agui-node" data-node="c:t2"><rect x="236" y="196" width="198" height="13" rx="3" fill="#fff" stroke="#ddd6fe"/><text x="240" y="205" style="font-size:8px;fill:#7c3aed">T2 · Bearer for Runtime B (act = backend agent) ›</text></g>
+                <text x="240" y="325" style="font-size:8px;fill:#a21caf">T2 (bound by the Runtime) → step 1</text>
+                <g class="agui-node" data-node="c:idjag"><rect x="236" y="388" width="168" height="13" rx="3" fill="#fff" stroke="#f5d0fe"/><text x="240" y="397" style="font-size:8px;fill:#a21caf">ID-JAG (org server → anyco-gateway-as) ›</text></g>
+                <g class="agui-node" data-node="c:token"><rect x="236" y="460" width="178" height="13" rx="3" fill="#fff" stroke="#f5d0fe"/><text x="240" y="469" style="font-size:8px;fill:#a21caf">T3 · Bearer (act = agent → backend agent) ›</text></g>
+                <text x="240" y="541" style="font-size:8px;fill:#c2410c">every tools/call</text>
+                <text x="240" y="613" style="font-size:8px;fill:#0f766e">caller.user + caller.acting_agent stamped</text>
+                <text x="240" y="685" style="font-size:8px;fill:#4f46e5">permit → tool runs for the engineer, via the agent</text>
+                <g class="agui-node" data-node="user"><rect x="170" y="14" width="120" height="34" rx="8" fill="#f4f4f5" stroke="#e4e4e7"/>
+                  <text class="t" x="230" y="35" text-anchor="middle" style="font-size:11px;font-weight:600;fill:#18181b">Engineer</text></g>
+                <g class="agui-node" data-node="okta"><rect x="80" y="72" width="300" height="44" rx="9" fill="#f5f3ff" stroke="#ddd6fe"/>
+                  <text class="t" x="94" y="91" style="font-size:10px;font-weight:600;fill:#18181b">Okta · anyco-users-as</text>
+                  <text x="94" y="105" style="font-size:8px;fill:#52525b">sign-in · only engineers get pr-agent.invoke</text></g>
+                <g class="agui-node" data-node="c:backend"><rect x="80" y="142" width="300" height="44" rx="9" fill="#faf5ff" stroke="#e9d5ff"/>
+                  <text class="t" x="94" y="161" style="font-size:10px;font-weight:600;fill:#18181b">Your backend · XAA (AI agent anyco-backend-agent-oai)</text>
+                  <text id="backend-sub-c" x="94" y="175" style="font-size:8px;fill:#52525b">T1 → ID-JAG (org server) → T2 (anyco-agent-b-as)</text></g>
+                <g class="agui-node" data-node="c:agent"><rect x="60" y="214" width="340" height="94" rx="10" fill="#eff6ff" stroke="#bfdbfe"/>
+                  <text class="t" x="74" y="233" style="font-size:10px;font-weight:600;fill:#18181b">PR Review Agent · Strands</text>
+                  <text x="74" y="246" style="font-size:8px;fill:#52525b">Runtime B · AG-UI · CUSTOM_JWT inbound</text>
+                  <rect x="270" y="222" width="120" height="18" rx="9" fill="#c026d3"/>
+                  <text id="agent-rel-c" x="330" y="234" text-anchor="middle" style="font-size:8.5px;font-weight:700;fill:#fff">delegate of ?</text>
+                  <g class="agui-node" data-node="tool:get_pull_request"><rect x="74" y="262" width="104" height="22" rx="5" fill="#fff" stroke="#bfdbfe"/>
+                    <text class="t" x="126" y="276" text-anchor="middle" style="font-size:7.5px;font-family:monospace;fill:#18181b">get_pull_request</text></g>
+                  <g class="agui-node" data-node="tool:post_review"><rect x="184" y="262" width="92" height="22" rx="5" fill="#fff" stroke="#bfdbfe"/>
+                    <text class="t" x="230" y="276" text-anchor="middle" style="font-size:7.5px;font-family:monospace;fill:#18181b">post_review</text></g>
+                  <g class="agui-node" data-node="tool:list_my_reviews"><rect x="282" y="262" width="104" height="22" rx="5" fill="#fff" stroke="#bfdbfe"/>
+                    <text class="t" x="334" y="276" text-anchor="middle" style="font-size:7.5px;font-family:monospace;fill:#18181b">list_my_reviews</text></g>
+                  <text x="74" y="300" style="font-size:7.5px;fill:#71717a">tools from the Gateway tools/list</text></g>
+                <g class="agui-node" data-node="c:step1"><rect x="80" y="334" width="300" height="44" rx="9" fill="#fdf4ff" stroke="#f0abfc"/>
+                  <text class="t" x="94" y="353" style="font-size:10px;font-weight:600;fill:#18181b">Step 1 · AgentCore Identity ⇄ Okta org server</text>
+                  <text id="xaa1-sub-c" x="94" y="367" style="font-size:8px;fill:#52525b">token exchange · T2 → ID-JAG (machine access)</text></g>
+                <g class="agui-node" data-node="c:step2"><rect x="80" y="406" width="300" height="44" rx="9" fill="#fdf4ff" stroke="#f0abfc"/>
+                  <text class="t" x="94" y="425" style="font-size:10px;font-weight:600;fill:#18181b">Step 2 · AgentCore Identity ⇄ anyco-gateway-as</text>
+                  <text id="xaa-sub-c" x="94" y="439" style="font-size:8px;fill:#52525b">JWT bearer · ID-JAG → T3</text></g>
+                <g class="agui-node" data-node="c:gateway"><rect x="80" y="478" width="300" height="44" rx="9" fill="#fff7ed" stroke="#fed7aa"/>
+                  <text class="t" x="94" y="497" style="font-size:10px;font-weight:600;fill:#18181b">AgentCore Gateway (shared)</text>
+                  <text x="94" y="511" style="font-size:8px;fill:#52525b">MCP · CUSTOM_JWT · verifies the delegated token</text></g>
+                <g class="agui-node" data-node="c:interceptor"><rect x="80" y="550" width="300" height="44" rx="9" fill="#f0fdfa" stroke="#99f6e4"/>
+                  <text class="t" x="94" y="569" style="font-size:10px;font-weight:600;fill:#18181b">Lambda interceptor</text>
+                  <text id="int-sub-c" x="94" y="583" style="font-size:8px;fill:#52525b">token claims → caller.user · caller.acting_agent</text></g>
+                <g class="agui-node" data-node="c:cedar"><rect x="80" y="622" width="300" height="44" rx="9" fill="#eef2ff" stroke="#c7d2fe"/>
+                  <text class="t" x="94" y="641" style="font-size:10px;font-weight:600;fill:#18181b">AgentCore Policy · Cedar</text>
+                  <text id="cedar-sub-c" x="94" y="655" style="font-size:8px;fill:#52525b">cid = agent · act = agent · uid · scope</text></g>
+                <g class="agui-node" data-node="c:tools"><rect x="80" y="696" width="300" height="44" rx="9" fill="#ecfdf5" stroke="#a7f3d0"/>
+                  <text class="t" x="94" y="715" style="font-size:10px;font-weight:600;fill:#18181b">Tool Lambdas</text>
+                  <text x="94" y="729" style="font-size:8px;fill:#52525b">record the engineer and the acting agent</text></g>
+                <circle data-dot="user-okta" class="agui-dot" r="4" fill="#a1a1aa"><animateMotion dur=".4s" fill="freeze" begin="indefinite" path="M230,48 L230,72"/></circle>
+                <circle data-dot="okta-backend-c" class="agui-dot" r="4" fill="#8b5cf6"><animateMotion dur=".4s" fill="freeze" begin="indefinite" path="M230,116 L230,142"/></circle>
+                <circle data-dot="app-agent" class="agui-dot" r="4" fill="#8b5cf6"><animateMotion dur=".4s" fill="freeze" begin="indefinite" path="M230,186 L230,214"/></circle>
+                <circle data-dot="agent-xaa" class="agui-dot" r="4" fill="#c026d3"><animateMotion dur=".4s" fill="freeze" begin="indefinite" path="M230,308 L230,334"/></circle>
+                <circle data-dot="xaa-12" class="agui-dot" r="4" fill="#c026d3"><animateMotion dur=".4s" fill="freeze" begin="indefinite" path="M230,378 L230,406"/></circle>
+                <circle data-dot="xaa-gw" class="agui-dot" r="4" fill="#c026d3"><animateMotion dur=".4s" fill="freeze" begin="indefinite" path="M230,450 L230,478"/></circle>
+                <circle data-dot="gw-int" class="agui-dot" r="4" fill="#fb923c"><animateMotion dur=".4s" fill="freeze" begin="indefinite" path="M230,522 L230,550"/></circle>
+                <circle data-dot="int-cedar" class="agui-dot" r="4" fill="#14b8a6"><animateMotion dur=".4s" fill="freeze" begin="indefinite" path="M230,594 L230,622"/></circle>
+                <circle data-dot="cedar-tool" class="agui-dot" r="4" fill="#10b981"><animateMotion dur=".4s" fill="freeze" begin="indefinite" path="M230,666 L230,696"/></circle>
+              </svg>
+              <div id="agui-ticker-c" class="mt-2 border-t border-zinc-100 pt-2 text-[10px] font-mono text-zinc-400">idle: sign in to the agent's app, send a prompt</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ Where Pattern B stops (slide) ============ -->
+      <div x-view="gapsb" class="space-y-6">
+        <div>
+          <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-rose-600">Why Pattern C</div>
+          <h2 class="text-lg font-semibold tracking-tight text-zinc-900">Where Pattern B stops working</h2>
+          <p class="mt-1 text-sm text-zinc-500">Pattern B works when a signed-in person starts the work. These are the cases it can't handle. Hover a card for the detail.</p>
+        </div>
+        <div id="gapsb-cards" class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"></div>
+        <div class="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+          <i data-lucide="zap" class="h-5 w-5 text-amber-600"></i>
+          <div class="text-[14px] text-amber-900"><b>Pattern C</b> keeps Cross App Access, but the subject is an <b>app</b>: Okta machine access lets the event source's own token start the chain.</div>
+          <button onclick="setView('event')" class="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700">Next: Pattern C <i data-lucide="arrow-right" class="h-4 w-4"></i></button>
+        </div>
+      </div>
+
+      <!-- ============ Pattern C · Cross App Access, machine (explain) ============ -->
+      <div x-view="event" class="space-y-6">
+        <div>
+          <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-600">Pattern C · Cross App Access (machine)</div>
+          <h2 class="text-lg font-semibold tracking-tight text-zinc-900">No user: the agent acts for the app that fired the event</h2>
+          <p class="mt-1 text-sm text-zinc-500">Okta machine access · the agent runs both Cross App Access steps and calls a partner MCP server behind its own issuer. Click a block for the key points.</p>
+        </div>
+        <div class="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm"><div id="xflowe" class="flex items-center gap-1"></div></div>
+        <div class="grid grid-cols-3 gap-4" id="xlegende"></div>
+        <div id="trust-e"></div>
+        <div id="code-e"></div>
+      </div>
+
+      <!-- ============ Pattern C · Cross App Access, machine (live) ============ -->
+      <div x-view="livee" class="space-y-5">
+        <div>
+          <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-600">Live · Pattern C</div>
+          <h2 class="text-lg font-semibold tracking-tight text-zinc-900">Publish an event; the agent runs for the event source</h2>
+        </div>
+        <div id="live-pending-e" class="hidden rounded-xl border border-amber-200 bg-amber-50/60 p-4 flex items-start gap-3">
+          <i data-lucide="clock" class="mt-0.5 h-4 w-4 shrink-0 text-amber-600"></i>
+          <div class="text-sm text-amber-900/80"><span class="font-semibold text-amber-800">Deploy pending.</span> Run <code>.venv/bin/python deploy.py</code> first (see the README).</div>
+        </div>
+        <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          <div class="space-y-5">
+            <div class="rounded-xl border border-zinc-200 bg-white shadow-sm">
+              <div class="flex items-center gap-2 border-b border-zinc-100 px-4 py-2.5">
+                <i data-lucide="radio" class="h-4 w-4 text-amber-500"></i>
+                <span class="text-sm font-semibold text-zinc-900">Event source · pull-request system</span>
+                <span id="ev-gate" class="ml-auto inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] font-medium text-zinc-400"></span>
+              </div>
+              <div class="space-y-3 p-4">
+                <div class="grid grid-cols-1 gap-2" id="ev-types"></div>
+                <div class="flex gap-2">
+                  <input id="ev-repo" class="flex-1 rounded-lg border border-zinc-200 bg-zinc-50/60 px-2.5 py-1.5 font-mono text-[13px] text-zinc-900" value="anyco/receipts-service">
+                  <input id="ev-pr" type="number" min="1" class="w-24 rounded-lg border border-zinc-200 bg-zinc-50/60 px-2.5 py-1.5 font-mono text-[13px] text-zinc-900" value="128">
+                  <button id="btn-publish" class="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-40"><i data-lucide="send" class="h-4 w-4"></i> Publish to SNS</button>
+                </div>
+                <div id="ev-status" class="font-mono text-[12px] text-zinc-400">idle: publish an event</div>
+              </div>
+            </div>
+            <div class="rounded-xl border border-zinc-200 bg-white shadow-sm">
+              <div class="flex items-center gap-2 border-b border-zinc-100 px-4 py-2.5"><i data-lucide="message-square" class="h-4 w-4 text-blue-500"></i><span class="text-sm font-semibold text-zinc-900">What the agent did</span><span id="ev-when" class="ml-auto text-[11px] text-zinc-400"></span></div>
+              <div id="ev-answer" class="p-4 text-[14px] leading-relaxed text-zinc-700"><span class="text-zinc-400">No run yet.</span></div>
+            </div>
+          </div>
+          <div class="rounded-xl border border-zinc-200 bg-white shadow-sm">
+            <div class="flex items-center gap-2 border-b border-zinc-100 px-4 py-2.5">
+              <i data-lucide="activity" class="h-4 w-4 text-orange-500"></i>
+              <span class="text-sm font-semibold text-zinc-900">Agent flow</span>
+              <span class="text-[11px] text-zinc-400">· the last run · click a block or a token for details</span>
+              <span id="agui-status-e" class="ml-auto inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] font-medium text-zinc-400">idle</span>
+            </div>
+            <div class="p-3">
+              <svg id="agui-svg-e" data-clickinfo="1" viewBox="0 0 460 500" class="w-full" style="max-height:920px">
+                <g stroke-width="1.6" fill="none"><path stroke="#fcd34d" d="M230,58 L230,84"/><path stroke="#c4b5fd" d="M230,128 L230,156"/><path stroke="#f0abfc" d="M230,236 L230,262"/>
+                  <path stroke="#f0abfc" d="M230,306 L230,334"/><path stroke="#6ee7b7" d="M230,378 L230,406"/></g>
+                <g fill="#a1a1aa"><polygon points="226,84 234,84 230,89"/><polygon points="226,156 234,156 230,161"/><polygon points="226,262 234,262 230,267"/><polygon points="226,334 234,334 230,339"/><polygon points="226,406 234,406 230,411"/></g>
+                <text x="240" y="74" style="font-size:8px;fill:#71717a">client credentials · private_key_jwt (KMS)</text>
+                <g class="agui-node" data-node="e:t1"><rect x="236" y="137" width="196" height="13" rx="3" fill="#fff" stroke="#ddd6fe"/><text x="240" y="146" style="font-size:8px;fill:#7c3aed">T1 · Bearer (sub = event source, aud = the agent) ›</text></g>
+                <text x="240" y="252" style="font-size:8px;fill:#a21caf">T1 (bound by the Runtime) → step 1</text>
+                <g class="agui-node" data-node="e:jag"><rect x="236" y="315" width="182" height="13" rx="3" fill="#fff" stroke="#f5d0fe"/><text x="240" y="324" style="font-size:8px;fill:#a21caf">ID-JAG (org server → anyco-partner-mcp-as) ›</text></g>
+                <g class="agui-node" data-node="e:token"><rect x="236" y="387" width="160" height="13" rx="3" fill="#fff" stroke="#a7f3d0"/><text x="240" y="396" style="font-size:8px;fill:#047857">Partner token · Bearer (act = agent) ›</text></g>
+                <g class="agui-node" data-node="e:sns"><rect x="80" y="14" width="300" height="44" rx="9" fill="#fffbeb" stroke="#fde68a"/>
+                  <text class="t" x="94" y="33" style="font-size:10px;font-weight:600;fill:#18181b">SNS → trigger Lambda (plays the event source)</text>
+                  <text id="ev-sub-sns" x="94" y="47" style="font-size:8px;fill:#52525b">anyco-pr-events · the Lambda signs in as anyco-event-source-app</text></g>
+                <g class="agui-node" data-node="e:okta"><rect x="80" y="84" width="300" height="44" rx="9" fill="#f5f3ff" stroke="#ddd6fe"/>
+                  <text class="t" x="94" y="103" style="font-size:10px;font-weight:600;fill:#18181b">Okta · anyco-event-agent-as</text>
+                  <text x="94" y="117" style="font-size:8px;fill:#52525b">issues T1 to the event source, for the agent's resource URL</text></g>
+                <g class="agui-node" data-node="e:agent"><rect x="60" y="156" width="340" height="80" rx="10" fill="#eff6ff" stroke="#bfdbfe"/>
+                  <text class="t" x="74" y="175" style="font-size:10px;font-weight:600;fill:#18181b">Event agent · Strands</text>
+                  <text x="74" y="188" style="font-size:8px;fill:#52525b">AgentCore Runtime · CUSTOM_JWT inbound: only T1</text>
+                  <rect x="260" y="164" width="130" height="18" rx="9" fill="#d97706"/>
+                  <text x="325" y="176" text-anchor="middle" style="font-size:8.5px;font-weight:700;fill:#fff">acts for the event source</text>
+                  <text id="ev-sub-agent" x="74" y="210" style="font-size:8px;fill:#52525b">Okta AI agent anyco-event-agent-oai · no user</text>
+                  <text id="ev-sub-run" x="74" y="224" style="font-size:7.5px;fill:#71717a"></text></g>
+                <g class="agui-node" data-node="e:idjag"><rect x="80" y="262" width="300" height="44" rx="9" fill="#fdf4ff" stroke="#f0abfc"/>
+                  <text class="t" x="94" y="281" style="font-size:10px;font-weight:600;fill:#18181b">Step 1 · AgentCore Identity ⇄ Okta org server</text>
+                  <text id="ev-sub-1" x="94" y="295" style="font-size:8px;fill:#52525b">token exchange · T1 → ID-JAG (machine access)</text></g>
+                <g class="agui-node" data-node="e:step2"><rect x="80" y="334" width="300" height="44" rx="9" fill="#fdf4ff" stroke="#f0abfc"/>
+                  <text class="t" x="94" y="353" style="font-size:10px;font-weight:600;fill:#18181b">Step 2 · AgentCore Identity ⇄ anyco-partner-mcp-as</text>
+                  <text id="ev-sub-2" x="94" y="367" style="font-size:8px;fill:#52525b">JWT bearer · ID-JAG → partner token</text></g>
+                <g class="agui-node" data-node="e:mcp"><rect x="60" y="406" width="340" height="80" rx="10" fill="#ecfdf5" stroke="#a7f3d0"/>
+                  <text class="t" x="74" y="425" style="font-size:10px;font-weight:600;fill:#18181b">Partner MCP server · its own Okta issuer</text>
+                  <text x="74" y="438" style="font-size:8px;fill:#52525b">AgentCore Runtime · only anyco-partner-mcp-as tokens · tools check act + scope</text>
+                  <g class="agui-node" data-node="e:tool:get_compliance_checks"><rect x="74" y="448" width="150" height="22" rx="5" fill="#fff" stroke="#a7f3d0"/>
+                    <text id="ev-tool-1" class="t" x="149" y="462" text-anchor="middle" style="font-size:7.5px;font-family:monospace;fill:#18181b">get_compliance_checks</text></g>
+                  <g class="agui-node" data-node="e:tool:record_compliance_result"><rect x="232" y="448" width="156" height="22" rx="5" fill="#fff" stroke="#a7f3d0"/>
+                    <text id="ev-tool-2" class="t" x="310" y="462" text-anchor="middle" style="font-size:7.5px;font-family:monospace;fill:#18181b">record_compliance_result</text></g></g>
+              </svg>
+              <div id="agui-ticker-e" class="mt-2 border-t border-zinc-100 pt-2 text-[10px] font-mono text-zinc-400">idle: publish an event</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+    </main>
+  </div>
+</div>
+
+<!-- node detail drawer (slides in, shrinks the page) -->
+<div id="node-panel" class="fixed right-0 top-0 z-[55] flex h-full w-[600px] translate-x-full flex-col border-l border-zinc-200 bg-white shadow-2xl transition-transform duration-300" style="will-change:transform">
+  <div class="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
+    <div class="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Key points</div>
+    <button id="node-panel-close" class="rounded-md p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"><i data-lucide="x" class="h-4 w-4"></i></button>
+  </div>
+  <div id="node-panel-body" class="scroll-thin flex-1 overflow-auto px-4 py-3 text-sm"></div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const safeId=s=>String(s??"").replace(/[^\w.:@-]/g,"_");   // ids and tool names used in id= / onclick=
+const icons=()=>lucide.createIcons();
+let STATUS={}, view="explainb", LASTBACKEND=null, LASTBACKEND_C=null, LASTOBO_JWT=null, LASTCALL=null, TOOLSPECS=null, MYTOKEN=null, LASTCALL_B=null, LASTOBO=null, BUSY=false, POLICIES={},
+    LASTCALL_C=null, LASTXAA=null, MYTOKEN_C=null, MYID_C=null;
+
+// ---------------- key points (drawer) ----------------
+const NODES={
+  okta:{title:"Okta · anyco-users-as",icon:"key-round",points:["Custom auth server <code>anyco-users-as</code>.", "Only <b>anyco-engineers</b> get <code>pr-agent.invoke</code>.", "The Runtime checks this token before any code runs."],
+    render:()=>jwtFull()},
+};
+function toolSpecExtra(short){
+  if(!TOOLSPECS) return `<div class="mt-3 text-[12px] text-zinc-400">loading tool spec…</div>`;
+  const t=TOOLSPECS.find(x=>bare(x.name)===short); if(!t) return `<div class="mt-3 text-[12px] text-zinc-400">not on the Gateway</div>`;
+  const pols=Object.keys(POLICIES).filter(n=>n.endsWith("_"+short) && n.startsWith(isCView()?"AnycoB_":"AnycoA_"));
+  let h=sec("permits");
+  h+=pols.length?pols.map(n=>`<div class="mt-1 font-mono text-[11.5px] text-emerald-700">${esc(n)}</div>`).join(""):`<div class="mt-1 text-[12px] text-zinc-500">none · hidden from tools/list, every call denied</div>`;
+  return h+more("Tool spec (from the Gateway target)",`<div class="font-mono text-[12px] text-zinc-800">${esc(t.name)}</div><div class="mt-1 text-[13px] text-zinc-600">${esc(t.description)}</div>`+pre(JSON.stringify(t.inputSchema,null,1)));
+}
+function openTool(short,ev){ if(ev) ev.stopPropagation();
+  NODES["b:tool:"+short]=NODES["b:tool:"+short]||toolNodeB(short); NODES["c:tool:"+short]=NODES["c:tool:"+short]||toolNodeC(short);
+  openNodePanel((isCView()?"c:":"b:")+"tool:"+short); }
+
+const OURS=["x-agent-run"];
+function headerOrigin(k){ const l=k.toLowerCase();
+  if(["host","content-type","accept","mcp-protocol-version","mcp-session-id","user-agent","content-length","accept-encoding"].includes(l)) return "MCP client (httpx)";
+  return "AWS, on arrival"; }
+function headerTable(hdrs, mode){
+  const all=Object.keys(hdrs||{}); const order={"MCP client (httpx)":1,"AWS, on arrival":2};
+  const row=(k,tag)=>`<tr class="border-b border-zinc-100 align-top"><td class="py-1 pr-2 font-mono text-[11.5px] text-zinc-800 whitespace-nowrap">${esc(k)}</td><td class="py-1 pr-2 font-mono text-[11.5px] text-zinc-500 break-all">${esc(hdrs[k]===""?"(empty)":hdrs[k])}</td>${tag?`<td class="py-1 whitespace-nowrap text-right"><span class="rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-500">${tag}</span></td>`:""}</tr>`;
+  const origin=k=>(k.toLowerCase()==="authorization" && String(hdrs[k]).startsWith("Bearer")) ? (mode==="C"?"Bearer · delegated token":"Bearer · OBO token") : headerOrigin(k);
+  const dflt=all.filter(k=>!OURS.includes(k.toLowerCase())).sort((a,b)=>((order[origin(a)]??-1)-(order[origin(b)]??-1))||a.localeCompare(b));
+  const ours=all.filter(k=>OURS.includes(k.toLowerCase())).sort();
+  return `<div class="mt-3 text-[12px] font-semibold text-zinc-700">Default headers · included automatically</div>
+    <table class="mt-1 w-full">${dflt.map(k=>row(k,origin(k))).join("")}</table>
+    <div class="mt-4 text-[12px] font-semibold text-blue-700">Headers we add · our Strands agent code</div>
+    <table class="mt-1 w-full">${ours.map(k=>row(k,"")).join("")}</table>
+    ${pre(`headers = {"Authorization": f"Bearer {t3}", "X-Agent-Run": run_id}
+with MCPClient(lambda: streamablehttp_client(GATEWAY_URL, headers=headers)) as gateway:
+    agent = Agent(model=BedrockModel(...), tools=gateway.list_tools_sync(), system_prompt=PROMPT)`)}
+    <div class="mt-2 rounded-lg bg-indigo-50 px-2 py-1.5 text-[11.5px] text-indigo-800">The Bearer token proves who is calling; <code>X-Agent-Run</code> only ties the calls to this run.</div>`;
+}
+const more=(t,html)=>html?`<details class="mt-3 rounded-lg border border-zinc-200"><summary class="cursor-pointer select-none px-2.5 py-1.5 text-[12px] font-medium text-zinc-600 hover:bg-zinc-50">${t}</summary><div class="border-t border-zinc-100 px-2.5 py-2">${html}</div></details>`:"";
+function ioBoxes(items){
+  return items.map(([t,v],i)=>`${i?'<div class="flex justify-center py-0.5"><i data-lucide="arrow-down" class="h-4 w-4 text-zinc-300"></i></div>':""}<div class="mt-2 rounded-lg border ${t.includes("Out")?"border-emerald-200":"border-blue-200"} p-2"><div class="text-[12px] font-semibold ${t.includes("Out")?"text-emerald-700":"text-blue-700"}">${t}</div><pre class="scroll-thin mt-1 max-h-72 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-zinc-50 px-2.5 py-2 font-mono text-[11px] text-zinc-800">${esc(JSON.stringify(v,null,1))}</pre></div>`).join("");
+}
+const pickT=o=>Object.fromEntries(["sub","uid","cid","aud","scp","act"].map(k=>[k,k==="act"?(o.act||"(none)"):o[k]]));
+function permitList(prefix,gwLabel){
+  const short=t=>t.replace(/"arn:aws:bedrock-agentcore:[^"]+"/g,`"${gwLabel}"`);
+  const ps=Object.entries(POLICIES).filter(([n])=>n.startsWith(prefix)).sort();
+  if(!ps.length) return sec("permits")+`<div class="mt-1 text-[12px] text-zinc-400">not deployed</div>`;
+  let h=sec(`${ps.length} permits · nothing else is allowed`)+ps.map(([n])=>`<div class="mt-1 font-mono text-[11.5px] text-emerald-700">${esc(n)}</div>`).join("");
+  h+=sec("one of them")+pre(short(ps[0][1]));
+  return h+more("All permit statements",ps.map(([n,st])=>`<div class="mt-2 text-[11px] font-medium text-zinc-600">${esc(n)}</div>${pre(short(st))}`).join(""));
+}
+const sec=(t)=>`<div class="mt-4 border-t border-zinc-100 pt-3 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">${t}</div>`;
+const pre=(t)=>`<pre class="scroll-thin mt-1 whitespace-pre-wrap break-all rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 font-mono text-[11px] text-zinc-800">${esc(t)}</pre>`;
+function jwtFull(){
+  if(!STATUS.user) return "";
+  if(!MYTOKEN) return more("Your token · decoded",`<div class="text-[12px] text-zinc-400">loading…</div>`);
+  const p={...MYTOKEN.payload}; ["iat","exp","auth_time"].forEach(k=>{ if(p[k]) p[k]=`${p[k]}  (${new Date(p[k]*1000).toLocaleString()})`; });
+  return more("Your token · decoded",pre(JSON.stringify(MYTOKEN.header,null,1))+pre(JSON.stringify(p,null,1))+pre(MYTOKEN.signature));
+}
+const AGUI={root:null,io:{},tools:{},pending:[]};
+const isBView=()=>view==="explainb"||view==="liveb";
+const isCView=()=>view==="delegation"||view==="livec";
+function nodeDetailHtml(node){
+  if(isBView() && !node.startsWith("b:") && NODES["b:"+node]) node="b:"+node;     // Pattern A wording on Pattern A screens
+  if(isCView() && !node.startsWith("c:") && NODES["c:"+node]) node="c:"+node;     // Cross App Access wording on its screens
+  const m=NODES[node]||{title:node,points:[]}; const io=AGUI.io[node];
+  let h=`<div class="flex items-center gap-2"><div class="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-900 text-white"><i data-lucide="${m.icon||'box'}" class="h-4 w-4"></i></div><div class="font-semibold text-zinc-900">${esc(m.title)}</div></div>`;
+  h+=`<ul class="mt-3 space-y-2">`+m.points.map(p=>`<li class="flex gap-2 text-[14px] leading-snug text-zinc-700"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"></i><span>${p}</span></li>`).join("")+`</ul>`;
+  if(m.render) h+=m.render();
+  if(m.code) h+=`<pre class="mt-3 whitespace-pre-wrap rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 font-mono text-[11.5px] text-zinc-800">${esc(m.code)}</pre>`;
+  if(io&&io.length){ h+=`<div class="mt-4 border-t border-zinc-100 pt-3 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">this run · what came in, what went out</div>`;
+    const blk=(lbl,v,tone)=>v==null||v===""?"":`<div class="mt-1.5 text-[11px] font-medium ${tone}">${lbl}</div><pre class="scroll-thin max-h-60 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1.5 font-mono text-[11px] text-zinc-800">${esc(typeof v==="string"?v:JSON.stringify(v,null,1))}</pre>`;
+    io.forEach(st=>{ h+=`<div class="mt-3 rounded-lg border border-zinc-100 p-2">${st.label?`<div class="text-[12px] font-semibold text-zinc-700">${esc(st.label)}</div>`:""}${blk("in",st.in,"text-blue-600")}${blk("out",st.out,"text-emerald-600")}</div>`; }); }
+  return h;
+}
+let _panelNode=null;
+function openNodePanel(node){
+  // Load each piece of drawer data at most once; re-render only when it actually arrives
+  // (so <details> stays open and scroll position holds — no render loop).
+  const F=(openNodePanel._f=openNodePanel._f||{});
+  const once=(key,need,url,set)=>{ if(!need||F[key]) return; F[key]=1;
+    (Array.isArray(url)?Promise.all(url.map(u=>fetch(u).then(r=>r.json()))):fetch(url).then(r=>r.json()))
+      .then(j=>{ if(set(j)!==false && _panelNode) openNodePanel(_panelNode); }).catch(()=>{ F[key]=0; }); };
+  if(["jwt","okta","b:jwt","b:okta","b:t1","c:t1","c:jwt","exchange","b:obotoken"].includes(node))
+    once("mytok", STATUS.user && !MYTOKEN, "/api/my-token", j=>{ MYTOKEN=j.payload?j:null; });
+  once("tools", node.includes("tool:") && !TOOLSPECS, "/api/tool-specs", j=>{ TOOLSPECS=j.tools||[]; });
+  once("lastcallb", ["b:agent","b:obotoken","b:interceptor"].includes(node) && !LASTCALL_B, "/api/last-call",
+       j=>{ if(j&&j.http){ LASTCALL_B=j; } else return false; });
+  once("lastobo", ["exchange","b:obotoken"].includes(node) && !LASTOBO, "/api/last-obo",
+       j=>{ if(j&&j.payload){ LASTOBO_JWT=j; LASTOBO=j.payload; } else return false; });
+  if(isCView()){
+    once("lastcallc", !LASTCALL_C, "/api/last-call?act=1", j=>{ if(j&&j.http){ LASTCALL_C=j; } else return false; });
+    once("lastxaa", !LASTXAA, "/api/last-xaa", j=>{ if(j&&j.jwt){ LASTXAA=j; } else return false; });
+    once("lastoboc", !LASTOBO, "/api/last-obo", j=>{ if(j&&j.payload){ LASTOBO_JWT=j; LASTOBO=j.payload; } else return false; });
+  }
+  $("#node-panel-body").innerHTML=nodeDetailHtml(node); $("#node-panel").classList.remove("translate-x-full");
+  $("#app-shell").style.marginRight="600px"; _panelNode=node; icons();
+}
+function closeNodePanel(){ $("#node-panel").classList.add("translate-x-full"); $("#app-shell").style.marginRight=""; _panelNode=null; }
+document.addEventListener("click",e=>{
+  if(e.target.closest("#node-panel-close")){ closeNodePanel(); return; }
+  if(e.target.closest("#node-panel")) return;
+  const g=e.target.closest('svg[data-clickinfo="1"] .agui-node[data-node], [data-xnode]');
+  if(g){ const n=g.getAttribute("data-node")||g.getAttribute("data-xnode"); e.stopPropagation(); if(_panelNode===n){closeNodePanel();return;} openNodePanel(n); return; }
+  if(_panelNode && !e.target.closest("button")) closeNodePanel();
+});
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeNodePanel(); });
+
+// ---------------- nav ----------------
+const NAV=[{id:"intro",label:"1 · The three patterns",icon:"layout-grid"},{id:"explainb",label:"2 · Pattern A · OBO/Delegation",icon:"user-round-check"},{id:"liveb",label:"3 · Live: token exchange",icon:"messages-square"},{id:"gaps",label:"4 · Where A stops",icon:"triangle-alert"},{id:"delegation",label:"5 · Pattern B · XAA (user)",icon:"git-merge"},{id:"livec",label:"6 · Live: XAA user",icon:"messages-square"},{id:"gapsb",label:"7 · Where B stops",icon:"triangle-alert"},{id:"event",label:"8 · Pattern C · XAA (machine)",icon:"zap"},{id:"livee",label:"9 · Live: XAA event",icon:"radio"}];
+const isScreen=n=>/^\d/.test(n.label);           // "1 · …" to "8 · …" live in the logo menu
+function renderAppMenu(){
+  $("#app-menu").innerHTML=NAV.filter(isScreen).map(n=>{ const on=view===n.id;
+    return `<button onclick="pickScreen('${n.id}')" class="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm ${on?'bg-zinc-100 font-semibold text-zinc-900':'text-zinc-700 hover:bg-zinc-50'}">
+      <i data-lucide="${n.icon}" class="h-4 w-4 ${on?'text-blue-600':'text-zinc-400'}"></i><span class="flex-1">${n.label}</span>${on?'<i data-lucide="check" class="h-4 w-4 text-blue-600"></i>':''}</button>`; }).join("");
+  icons();
+}
+function pickScreen(id){ $("#app-menu").classList.add("hidden"); setView(id); }
+function renderNav(){ renderAppMenu(); }
+$("#app-btn").onclick=e=>{ e.stopPropagation(); renderAppMenu(); $("#app-menu").classList.toggle("hidden"); };
+document.addEventListener("click",e=>{ if(!e.target.closest("#app-wrap")) $("#app-menu").classList.add("hidden"); });
+function setView(id){ view=id;
+  $$("[x-view]").forEach(v=>v.classList.toggle("on",v.getAttribute("x-view")===id));
+  renderNav(); history.replaceState(null,"","#"+id); closeNodePanel(); }
+
+// ---------------- explain cards (shared) ----------------
+const TONE={zinc:["bg-zinc-100","text-zinc-700","border-l-zinc-400"],violet:["bg-violet-100","text-violet-700","border-l-violet-500"],blue:["bg-blue-100","text-blue-700","border-l-blue-500"],amber:["bg-amber-100","text-amber-700","border-l-amber-500"],orange:["bg-orange-100","text-orange-700","border-l-orange-500"],teal:["bg-teal-100","text-teal-700","border-l-teal-500"],indigo:["bg-indigo-100","text-indigo-700","border-l-indigo-500"],emerald:["bg-emerald-100","text-emerald-700","border-l-emerald-500"]};
+function xcard(k,title,sub,tone,icon,extra){
+  const [bg,tx,rail]=TONE[tone];
+  return `<div data-xnode="${k}" class="xnode cursor-pointer rounded-xl border border-zinc-200 border-l-4 ${rail} bg-white p-3.5 shadow-sm">
+    <div class="flex items-center gap-2.5"><div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${bg} ${tx}"><i data-lucide="${icon}" class="h-5 w-5"></i></div>
+      <div class="min-w-0"><div class="text-[14.5px] font-semibold leading-tight text-zinc-900">${title}</div><div class="text-[12.5px] leading-snug text-zinc-500">${sub}</div></div>
+      <i data-lucide="chevron-right" class="ml-auto h-4 w-4 shrink-0 text-zinc-300"></i></div>${extra||""}</div>`;
+}
+const down=(label)=>`<div class="flex items-center justify-center gap-2 py-1.5"><i data-lucide="arrow-down" class="h-4 w-4 text-zinc-300"></i>${label?`<span class="font-mono text-[11px] text-zinc-400">${label}</span>`:""}</div>`;
+const across=(label,sub,node)=>`<div ${node?`data-xnode="${node}"`:""} class="flex w-[104px] shrink-0 flex-col items-center justify-center rounded-lg py-2 text-center ${node?"xnode cursor-pointer hover:bg-zinc-50":""}"><span class="font-mono text-[11.5px] font-semibold text-zinc-600">${label}</span><i data-lucide="arrow-right" class="my-1 h-6 w-6 text-zinc-300"></i><span class="text-[10.5px] leading-tight text-zinc-400">${sub||""}</span>${node?`<span class="mt-1 text-[10px] font-medium text-blue-600">what it carries</span>`:""}</div>`;
+// ---------------- AG-UI flow engine (as in the security demo) ----------------
+const BNODES=new Set(["agent","gateway","interceptor","cedar","tools"]);
+const PFX=()=>({B:"b:",C:"c:"}[AGUI.mode]||"");
+const NK=n=>(PFX() && BNODES.has(n)) ? PFX()+n : n;                    // token exchange / Cross App Access use their own drawer content
+const $m=id=>$(id+({B:"-b",C:"-c"}[AGUI.mode]||""));                   // and their own SVG labels/chat
+const UC=()=>STATUS.user||{};      // who is signed in (one sign-in for Patterns A and B)
+const TOKC=()=>AGUI.mode==="C"?(((XJ("final")||{}).payload)||{}):(LASTOBO||{});   // the token the Gateway receives
+function nodeEl(n){ return AGUI.root.querySelector(`.agui-node[data-node="${NK(n)}"]`); }
+function undim(n){ const e=nodeEl(n); if(e) e.classList.remove("dim"); }
+function flash(n){ const e=nodeEl(n); if(!e) return; e.classList.remove("dim","flash"); void e.getBoundingClientRect(); e.classList.add("flash"); }
+function active(n,on){ const e=nodeEl(n); if(e) e.classList.toggle("active",on); }
+function connEl(c){ return AGUI.root.querySelector(`.agui-conn[data-conn="${c}"]`); }
+function flow(c){ const e=connEl(c); if(e) e.classList.add("lit","flow"); const d=AGUI.root.querySelector(`.agui-dot[data-dot="${c}"]`); if(d){ d.classList.add("active"); const a=d.querySelector("animateMotion"); try{a.beginElement()}catch(_){} } }
+function stop(c){ const e=connEl(c); if(e) e.classList.remove("flow"); }
+function deny(c){ const e=connEl(c); if(e){ e.classList.remove("flow"); e.classList.add("denied","lit"); } }
+function tick(m){ $m("#agui-ticker").textContent=m; }
+function setStatus(t,color){ const c={amber:"text-amber-600",emerald:"text-emerald-600",rose:"text-rose-600"}[color]||"text-zinc-400";
+  $m("#agui-status").className=`ml-auto inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] font-medium ${c}`; $m("#agui-status").textContent=t; }
+function aguiReset(prompt, mode){
+  // a fresh run: forget the last loaded call so the drawers reload this run's data
+  LASTCALL=LASTCALL_B=LASTCALL_C=LASTXAA=null; if(openNodePanel._f) openNodePanel._f={};
+  AGUI.mode=mode; AGUI.root=$m("#agui-svg"); AGUI.io={}; AGUI.tools={}; AGUI.pending=[];
+  const R=AGUI.root;
+  R.querySelectorAll(".agui-node").forEach(n=>n.classList.remove("active","flash","blocked","ok"));
+  R.querySelectorAll(".agui-node[data-node]").forEach(n=>n.classList.add("dim"));
+  R.querySelectorAll(".agui-conn").forEach(c=>c.classList.remove("lit","flow","denied"));
+  undim("user"); undim("jwt"); undim("b:obotoken"); undim("c:token"); undim("c:idjag"); undim("c:t1"); undim("c:backend"); undim("c:t2"); undim("b:t1"); undim("b:backend");
+  if(AGUI.mode==="B"){ $m("#agent-rel").textContent="acts for "+((STATUS.user||{}).sub||"?").split("@")[0];
+    $m("#int-sub").textContent="token claims → caller.user · client_id"; $m("#cedar-sub").textContent="cid = agent · backend in act · uid · scope"; }
+  else if(AGUI.mode==="C"){ $m("#agent-rel").textContent="delegate of "+((STATUS.user||{}).sub||"?").split("@")[0];
+    $m("#int-sub").textContent="token claims → caller.user · caller.acting_agent"; $m("#cedar-sub").textContent="cid = agent · act = agent + backend agent · uid · scope";
+    $("#xaa-sub-c").textContent="JWT bearer · ID-JAG → T3"; $("#xaa1-sub-c").textContent="token exchange · T2 → ID-JAG (machine access)"; }
+  AGUI.cedarPending={}; AGUI.msgs=[]; AGUI.run=null;
+  io("user",{label:"this run",in:{prompt},out:AGUI.mode==="C"
+    ? {sent_to:"Runtime B (DEFAULT endpoint)",protocol:"AG-UI RunAgentInput",authorization:"Bearer <T2, from the backend's Cross App Access at anyco-agent-b-as>"}
+    : {sent_to:"Runtime A (DEFAULT endpoint)",protocol:"AG-UI RunAgentInput",authorization:"Bearer <Okta access token>"}});
+  io("agent",{label:"this run",in:{prompt,from:UC().sub,inbound_auth:AGUI.mode==="C"?"T2 verified by Runtime B (issuer anyco-agent-b-as, aud api://anyco-agent-b-aud, scope agent-b.invoke, cid = the backend agent)":"T2 verified by Runtime A (issuer anyco-agent-a-as, aud api://anyco-agent-a-aud, scope agent-a.invoke, cid = the backend)"},out:{}});
+  tick("run starting…"); setStatus("running","amber");
+}
+const bare=n=>safeId(String(n||"").split("___").pop());
+const strip=o=>{ try{ const a=typeof o==="string"?JSON.parse(o||"{}"):JSON.parse(JSON.stringify(o||{})); return a; }catch(_){ return o; } };
+const IOK=n=>{ const p=PFX(); if(!p) return n; if(n.startsWith("b:")||n.startsWith("c:")) return n;
+  return (BNODES.has(n)||["user","okta","jwt"].includes(n)||n.startsWith("tool:")) ? p+n : n; };
+function io(node,step){ node=IOK(node); (AGUI.io[node]=AGUI.io[node]||[]).push(step);
+  if(_panelNode && (_panelNode===node || "b:"+_panelNode===node || "c:"+_panelNode===node)) openNodePanel(_panelNode); return step; }
+function ioFind(node,label){ return (AGUI.io[IOK(node)]||[]).filter(s=>s.label===label).pop(); }
+function onAgui(ev){
+  const t=ev.type;
+  if(ev.messageId) ev.messageId=safeId(ev.messageId);       // these end up in id= attributes
+  if(ev.toolCallId) ev.toolCallId=safeId(ev.toolCallId);
+  if(t==="RUN_STARTED"){
+    flash("user"); flow("user-okta"); flash("okta");
+    const c=UC();
+    io("okta",{label:"engineer sign-in (earlier)",in:{user:c.sub,requested_scope:"openid profile email pr-agent.invoke",client:"anyco-eng-login-app"},
+               out:{access_token_claims:{sub:c.sub,scp:c.scp,aud:c.aud,exp:new Date((c.exp||0)*1000).toLocaleTimeString()},
+                    note:"raw token never shown"}});
+    const hop=AGUI.mode==="B"?"backend-agent":AGUI.mode==="C"?"app-agent":"okta-agent";
+    setTimeout(()=>{ stop("user-okta"); flow(hop); flash("agent"); active("agent",true); setTimeout(()=>stop(hop),700); },350);
+    tick(AGUI.mode==="B"?"T2 accepted by Runtime A (issuer anyco-agent-a-as · cid = the backend) → agent":AGUI.mode==="C"?"T2 accepted by Runtime B (issuer anyco-agent-b-as · cid = the backend agent) → agent":"Okta JWT accepted by the Runtime (scope pr-agent.invoke) → agent");
+  } else if(t==="CUSTOM" && ev.name==="release"){
+    const v=ev.value||{}; AGUI.run=v;
+    const st=ioFind("agent","this run"); if(st){ st.in.run_id=v.run_id; st.out.tools_listed=(v.tools||[]).map(bare); }
+    (v.tools||[]).forEach(n=>undim("tool:"+bare(n)));
+    tick(`run ${String(v.run_id||"").slice(0,22)}… · ${(v.tools||[]).length} tools listed`);
+  } else if(t==="CUSTOM" && ev.name==="obo_token_jwt"){
+    LASTOBO_JWT=ev.value||null; const c=(LASTOBO_JWT||{}).payload||{}; LASTOBO=c; if(_panelNode) openNodePanel(_panelNode);
+    flow("agent-exch"); flash("exchange"); active("exchange",true);
+    setTimeout(()=>{ stop("agent-exch"); active("exchange",false); },800);
+    tick(`Okta token exchange → sub=${c.sub} · cid=agent · aud=${c.aud} · scp=${(c.scp||[]).join(" ")}`);
+  } else if(t==="CUSTOM" && ev.name==="xaa"){
+    const x=ev.value||{}; flow("agent-xaa"); flash("c:step1"); active("c:step1",true);
+    if(x.error){
+      nodeEl("c:step1")?.classList.add("blocked"); deny("agent-xaa"); $("#xaa1-sub-c").textContent="REFUSED · "+x.error.slice(0,60);
+      tick(`Cross App Access refused: ${x.error}`); return;
+    }
+    LASTXAA=x; const P=k=>((x.jwt||{})[k]||{}).payload||{}, at=P("final"), jag=P("id_jag");
+    $("#xaa1-sub-c").textContent=`ID-JAG: aud ${String(jag.aud||"?").split("/").pop()} · act = the AI agent`;
+    setTimeout(()=>{ stop("agent-xaa"); active("c:step1",false); flow("xaa-12"); flash("c:step2"); active("c:step2",true);
+      $("#xaa-sub-c").textContent=`T3: aud ${at.aud||"?"} · act.sub = ${(at.act||{}).sub||"?"}`;
+      setTimeout(()=>{ stop("xaa-12"); active("c:step2",false); },700); },600);
+    tick(`Cross App Access → T3: sub=${at.sub} · act=${(at.act||{}).sub} · aud=${at.aud} · scp=${(at.scp||[]).join(" ")}`);
+  } else if(t==="TOOL_CALL_START"){
+    const name=bare(ev.toolCallName); AGUI.tools[ev.toolCallId]={name,args:""};
+    flash("tool:"+name); chatTool(ev.toolCallId,name);
+    if(AGUI.mode==="C"){
+      flow("xaa-gw"); flash("gateway"); active("gateway",true); setTimeout(()=>stop("xaa-gw"),700);
+      tick(`${name}() → Bearer <delegated token> → the Gateway`);
+    } else if(AGUI.mode==="B"){
+      flow("exch-gw"); flash("gateway"); active("gateway",true); setTimeout(()=>stop("exch-gw"),700);
+      tick(`${name}() → Bearer <OBO token> → the Gateway`);
+    }
+  } else if(t==="TOOL_CALL_ARGS"){
+    const m=AGUI.tools[ev.toolCallId]; if(m) m.args+=ev.delta||"";
+  } else if(t==="TOOL_CALL_END"){
+    const m=AGUI.tools[ev.toolCallId]; if(!m) return; const args=strip(m.args);
+    chatToolArgs(ev.toolCallId,m.args);
+    const ag=ioFind("agent","this run"); if(ag) (ag.out.tool_calls=ag.out.tool_calls||[]).push({tool:m.name,arguments:args});
+    m.step=io("tool:"+m.name,{label:`${m.name} call`,in:{arguments_from_model:args},out:"(waiting for the gateway)"});
+  } else if(t==="TOOL_CALL_RESULT"){
+    const m=AGUI.tools[ev.toolCallId]; if(m&&m.step) m.step.out=String(ev.content||"").slice(0,1500);
+  } else if(t==="TEXT_MESSAGE_START"){ chatAgentStart(ev.messageId); AGUI.msgs.push({id:ev.messageId,text:""});
+  } else if(t==="TEXT_MESSAGE_CONTENT"){ chatAgentDelta(ev.messageId, ev.delta||"");
+    const m=AGUI.msgs.find(x=>x.id===ev.messageId) || (AGUI.msgs.push({id:ev.messageId,text:""}), AGUI.msgs[AGUI.msgs.length-1]); m.text+=ev.delta||"";
+  } else if(t==="TEXT_MESSAGE_END"){ const el=document.getElementById("m-"+ev.messageId);
+    if(el){ if(!el.textContent.trim()) el.closest(".flex").remove(); else el.innerHTML=esc(el.textContent).replace(/\*\*([^*]+)\*\*/g,"<b>$1</b>").replace(/`([^`]+)`/g,'<code class="rounded bg-zinc-100 px-1 font-mono text-[12.5px]">$1</code>').replace(/\n/g,"<br>"); }
+  } else if(t==="RUN_FINISHED"){ active("agent",false); active("gateway",false); setStatus("done","emerald");
+    // exactly the messages shown in the chat, in order (empty ones are dropped there too)
+    const msgs=AGUI.msgs.map(m=>m.text).filter(t=>t.trim());
+    const ag=ioFind("agent","this run"); if(ag){ ag.out.messages=msgs; }
+    const u=ioFind("user","this run"); if(u){ u.out.messages_received=msgs; u.out.final_answer=msgs[msgs.length-1]||""; }
+    if(_panelNode) openNodePanel(_panelNode);
+  } else if(t==="RUN_ERROR"){ setStatus("error","rose"); chatNote(ev.message||"run error","rose"); }
+}
+function onBackend(rec){   // the backend's token exchange (T1 -> T2), as made; Pattern A or B
+  const C_=AGUI.mode==="C"; if(C_) LASTBACKEND_C=rec; else LASTBACKEND=rec;
+  const t2=((rec.out||{}).body||{}).access_token||{}, c=t2.payload||{}, conn=C_?"okta-backend-c":"okta-backend";
+  flow(conn); flash(C_?"c:backend":"b:backend"); setTimeout(()=>stop(conn),600);
+  const sub=$(C_?"#backend-sub-c":"#backend-sub-b"); if(sub) sub.textContent=`T2: aud ${c.aud||"?"} · cid = backend · act = ${((c.act||{}).sub||"?")}`;
+  tick(C_?`backend Cross App Access (2 steps) → T2 (aud ${c.aud||"?"}, act = the backend agent)`:`backend token exchange → T2 (aud ${c.aud||"?"}, act = the backend)`);
+}
+function onGateway(g){
+  const name=bare(g.tool);
+  if(g.phase==="request"){
+    const hdr=g.agent_headers||{};
+    const C=AGUI.mode==="C", oc=TOKC();
+    io("gateway",{label:name,in:{authorization:C?"Bearer <delegated token>":"Bearer <OBO token>",tools_call:{name:g.tool,arguments:g.original_arguments}},
+      out:{jwt:"verified against Okta anyco-gateway-as (discovery URL) · aud api://anyco-gateway-aud",principal:`AgentCore::OAuthUser "${oc.sub||"?"}"`,tags:C?{cid:oc.cid,uid:oc.uid,scp:oc.scp,act:JSON.stringify(oc.act)}:{cid:oc.cid,uid:oc.uid,scp:oc.scp},next:"REQUEST interceptor"}});
+    flow("gw-int"); flash("interceptor"); active("interceptor",true);
+    const callerOut=(((((g.literal_return||{}).mcp||{}).transformedGatewayRequest||{}).body||{}).params||{}).arguments?.caller||{};
+    $m("#int-sub").textContent = C ? `caller.user = "${callerOut.user||"?"}" · acting_agent = ${callerOut.acting_agent||"?"}` : `caller.user = "${callerOut.user||"?"}" · client_id = agent`;
+    if(g.literal_event) io("interceptor",{label:name,in:g.literal_event,out:g.literal_return}); else
+    io("interceptor",{label:name,in:{original_params:{name:g.tool,arguments:g.original_arguments},
+        headers:{"X-Agent-Run":hdr["X-Agent-Run"]}},
+      out:{modified_params:{name:g.tool,arguments:g.arguments},note:"caller replaced from the headers; anything the model put there is gone"}});
+    AGUI.cedarPending=AGUI.cedarPending||{};
+    AGUI.cedarPending[name]=io("cedar",{label:name,in:{principal: C ? `AgentCore::OAuthUser::"${oc.sub}" (tags cid=${oc.cid}, act=${JSON.stringify(oc.act)}, uid=${oc.uid}, scp=${JSON.stringify(oc.scp)})` : `AgentCore::OAuthUser::"${oc.sub}" (tags cid=${oc.cid}, uid=${oc.uid}, scp=${JSON.stringify(oc.scp)})`,
+        action:`AgentCore::Action::"${g.tool}"`,resource:"AgentCore::Gateway::<this gateway>",context:{input:g.arguments}},out:"(evaluating)"});
+    setTimeout(()=>{ stop("gw-int"); active("interceptor",false); flow("int-cedar"); flash("cedar"); active("cedar",true); setTimeout(()=>stop("int-cedar"),600); },350);
+    tick(C ? `${name}() → interceptor stamps caller.user + caller.acting_agent from the verified token → AgentCore Policy` : `${name}() → interceptor stamps caller.user from the verified token → AgentCore Policy`);
+  } else {
+    active("cedar",false); active("gateway",false);
+    const cst=(AGUI.cedarPending||{})[name];
+    if(g.outcome==="denied"){
+      nodeEl("cedar").classList.add("blocked"); deny("cedar-tool"); nodeEl("tool:"+name)?.classList.add("blocked");
+      $m("#cedar-sub").textContent = `DENY ${name} · no permit`;
+      if(cst) cst.out={decision:"DENY",why:`no ${AGUI.mode==="C"?"AnycoB_":"AnycoA_"} permit matches ${g.tool} for this token (default deny)`,gateway_reply:g.detail};
+      const ts=ioFind("tool:"+name,`${name} call`); if(ts) ts.out={refused_by_policy:g.detail};
+      tick(`${name}() DENIED by AgentCore Policy: no permit for this tool`);
+    } else {
+      nodeEl("cedar").classList.add("ok"); flow("cedar-tool"); flash("tools"); nodeEl("tool:"+name)?.classList.add("ok");
+      $m("#cedar-sub").textContent = AGUI.mode==="C" ? `PERMIT ${name} · for ${TOKC().sub||"?"} via the agent` : `PERMIT ${name} · on behalf of ${(LASTOBO||{}).sub||"?"}`;
+      if(cst) cst.out={decision:"PERMIT",matched: AGUI.mode==="C" ? `AnycoB_${name}` : `AnycoA_${name}`};
+      const ir=ioFind("interceptor",name);
+      io("tools",{label:name,in:(ir&&ir.out.modified_params)||{name:g.tool},out:strip(g.detail)});
+      setTimeout(()=>stop("cedar-tool"),800);
+      tick(AGUI.mode==="C" ? `${name}() permitted for ${TOKC().sub||"?"}, acting agent ${(TOKC().act||{}).sub||"?"} → tool ran` : `${name}() permitted on behalf of ${(LASTOBO||{}).sub||"?"} → tool ran as them`);
+    }
+    chatToolOutcome(name,g.outcome,g.detail);
+  }
+}
+
+// ---------------- chat (left) ----------------
+function chatAdd(html){ const c=$m("#chat"); c.insertAdjacentHTML("beforeend",html); c.scrollTop=c.scrollHeight; icons(); }
+function chatUser(text){ chatAdd(`<div class="flex justify-end"><div class="max-w-[80%] rounded-2xl rounded-br-sm bg-zinc-900 px-3.5 py-2 text-[14px] text-white">${esc(text)}<div class="mt-1 text-[10px] text-zinc-400">${esc(AGUI.mode==="C"?"for "+((STATUS.user||{}).sub||"you")+" · via your delegate":"as "+((STATUS.user||{}).sub||"you"))}</div></div></div>`); }
+function chatAgentStart(id){ chatAdd(`<div class="flex gap-2"><div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700"><i data-lucide="bot" class="h-4 w-4"></i></div><div id="m-${id}" class="max-w-[85%] rounded-2xl rounded-bl-sm border border-zinc-200 bg-white px-3.5 py-2 text-[14px] leading-relaxed text-zinc-800"></div></div>`); }
+function chatAgentDelta(id,d){ const el=document.getElementById("m-"+id); if(el){ el.textContent+=d; $m("#chat").scrollTop=$m("#chat").scrollHeight; } }
+function chatTool(id,name){ AGUI.pending.push({id,name}); chatAdd(`<div id="t-${id}" class="ml-9 flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1.5"><i data-lucide="wrench" class="h-3.5 w-3.5 text-orange-500"></i><span onclick="openTool('${name}',event)" class="cursor-pointer font-mono text-[12.5px] font-medium underline decoration-dotted underline-offset-2 hover:text-blue-700">${name}</span><span class="args truncate font-mono text-[11px] text-zinc-400"></span><span class="pill ml-auto shrink-0 whitespace-nowrap rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-500">at gateway…</span></div>`); }
+function chatToolArgs(id,args){ const el=document.querySelector(`#t-${id} .args`); if(el){ try{ const a=JSON.parse(args||"{}"); delete a.caller; el.textContent=JSON.stringify(a); }catch(_){ el.textContent=args; } } }
+function chatToolOutcome(name,outcome,detail){
+  const i=AGUI.pending.findIndex(p=>p.name===name); if(i<0) return; const {id}=AGUI.pending.splice(i,1)[0];
+  const row=document.getElementById("t-"+id); if(!row) return; const pill=row.querySelector(".pill");
+  if(outcome==="denied"){ row.className=row.className.replace("bg-zinc-50","bg-rose-50").replace("border-zinc-200","border-rose-200"); pill.className="pill ml-auto shrink-0 whitespace-nowrap rounded-full bg-rose-600 px-2 py-0.5 text-[11px] font-medium text-white"; pill.textContent="denied by policy"; row.title=detail; }
+  else { pill.className="pill ml-auto shrink-0 whitespace-nowrap rounded-full bg-emerald-600 px-2 py-0.5 text-[11px] font-medium text-white"; pill.textContent="allowed"; }
+}
+function chatNote(text,color){ chatAdd(`<div class="text-center text-[12px] ${color==="rose"?"text-rose-600":"text-zinc-400"}">${esc(text)}</div>`); }
+
+async function sendB(){ return sendMode("B"); }
+async function sendC(){ return sendMode("C"); }
+async function sendMode(mode){
+  const inp=$("#chat-input"+({B:"-b",C:"-c"}[mode]||""));
+  const text=inp.value.trim(); if(!text||BUSY) return;
+  AGUI.mode=mode; BUSY=true; renderSigninB(); renderSigninC(); inp.value=""; chatUser(text); aguiReset(text, mode);
+  try{
+    const res=await post({B:"/api/run-b",C:"/api/run-c"}[mode],{prompt:text});
+    const reader=res.body.getReader(); const dec=new TextDecoder(); let buf="";
+    while(true){ const {value,done}=await reader.read(); if(done) break; buf+=dec.decode(value,{stream:true}); let i;
+      while((i=buf.indexOf("\n\n"))>=0){ const frame=buf.slice(0,i).replace(/^data:\s?/,""); buf=buf.slice(i+2); if(!frame) continue;
+        let ev; try{ ev=JSON.parse(frame); }catch(_){ continue; }
+        if(ev.type==="agui") onAgui(ev.event);
+        else if(ev.type==="gateway") onGateway(ev);
+        else if(ev.type==="backend") onBackend(ev.value);
+        else if(ev.type==="failed"){ setStatus("failed","rose"); chatNote(ev.reason,"rose"); }
+        else if(ev.type==="done"){ if($m("#agui-status").textContent==="running") setStatus("done","emerald"); }
+      } }
+  }catch(e){ chatNote(String(e),"rose"); setStatus("error","rose"); }
+  BUSY=false; renderSigninB(); renderSigninC();
+  if(mode==="C") fetch("/api/last-call?act=1").then(r=>r.json()).then(j=>{ if(j&&j.http) LASTCALL_C=j; }).catch(()=>{});
+}
+
+
+// ---------------- Pattern A · OBO/Delegation (token exchange) drawers ----------------
+const chk=(t)=>`<li class="flex gap-2 text-[13px] leading-snug text-zinc-700"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"></i><span>${t}</span></li>`;
+function decodedPair(){
+  const t2=LASTBACKEND&&((LASTBACKEND.out||{}).body||{}).access_token, sub=t2&&t2.payload, ex=LASTOBO&&Object.keys(LASTOBO).length?LASTOBO:null;
+  let h=sec("subject token → exchanged token");
+  if(!sub&&!ex) return h+`<div class="mt-1 text-[12px] text-zinc-400">Sign in and run the Pattern A agent once to see both tokens.</div>`;
+  const pick=o=>o?Object.fromEntries(["iss","sub","uid","cid","aud","scp","act","exp"].filter(k=>k in o||k==="act").map(k=>[k,k==="act"?(o.act||"(none)"):k==="exp"?`${o.exp} (${new Date(o.exp*1000).toLocaleTimeString()})`:o[k]])):null;
+  h+=`<div class="mt-2 grid grid-cols-2 gap-2"><div><div class="text-[11px] font-medium text-blue-700">subject · T2 (what the agent received)</div>${sub?pre(JSON.stringify(pick(sub),null,1)):'<div class="text-[12px] text-zinc-400">run the agent once</div>'}</div>
+     <div><div class="text-[11px] font-medium text-emerald-700">exchanged · T3, what the Gateway receives</div>${ex?pre(JSON.stringify(pick(ex),null,1)):'<div class="text-[12px] text-zinc-400">run the agent once</div>'}</div></div>`;
+  h+=`<div class="mt-1 text-[11.5px] text-zinc-500">Same <code>sub</code> and <code>uid</code> (the engineer). New <code>cid</code> (the agent), <code>aud</code> and <code>scp</code>. Okta adds the agent's app as the outermost <code>act</code> and keeps the trail: agent → backend → the web app Ada signed in to.</div>`;
+  return h;
+}
+function exchangeExtra(){ return tokFull("T3 · the token this exchange returned", T3()); }
+function bInterceptorExtra(){
+  const c=LASTCALL_B; let h=sec(`one real call on the Gateway${c&&c.tool?` · ${esc(c.tool)}`:""}`);
+  if(!c||!c.literal_event) return h+`<div class="mt-1 text-[12px] text-zinc-400">Run the Pattern A agent once to capture a real call.</div>`;
+  h+=ioBoxes([["In · the exact Lambda event (credentials masked)",c.literal_event],
+              ["Out · the exact return value: caller.user from the token",c.literal_return]]);
+  return h+more("Code · lambdas/interceptor.py",pre(`claims = decode(header(headers, "Authorization"))   # already verified
+args["caller"] = {"client_id": claims["cid"], "user": claims["sub"],
+                  "scopes": claims["scp"], "run_id": header(headers, "X-Agent-Run")}`));
+}
+function bAgentExtra(){
+  let h=sec("code · agent/main.py, AGENT_MODE=obo");
+  h+=pre(`@requires_access_token(provider_name="anyco-pr-review-agent-obo",
+    scopes=["pr:read", "pr:review"], auth_flow="ON_BEHALF_OF_TOKEN_EXCHANGE",
+    custom_parameters={"audience": "api://anyco-gateway-aud",
+        "subject_token_type": "urn:ietf:params:oauth:token-type:access_token"})
+async def token_exchange(*, access_token):   # T2 -> T3 (subject = T2, bound by the Runtime)
+    return access_token
+
+t3 = await token_exchange()`);
+  h+=more("Headers on the call to the Gateway (real)",LASTCALL_B&&LASTCALL_B.http?headerTable(LASTCALL_B.http.headers,"B"):`<div class="text-[12px] text-zinc-400">Run the agent once.</div>`);
+  return h;
+}
+function bTokenExtra(){ return tokFull("T3 · the token the Gateway receives", T3()); }
+function bCedarExtra(){ return permitList("AnycoA_","<gateway>"); }
+Object.assign(NODES,{
+  "b:agent":{title:"PR Review Agent · Strands on Runtime A",icon:"bot",points:["The shared agent code, switched by our env var <code>AGENT_MODE=obo</code>.", "Exchanges the engineer's token, then calls the Gateway with the new one."],render:()=>bAgentExtra()},
+  exchange:{title:"AgentCore Identity ⇄ Okta · token exchange (RFC 8693)",icon:"repeat",points:["AgentCore Identity exchanges T2 at <code>anyco-gateway-as</code> (RFC 8693), as the agent's app <code>anyco-pr-review-agent-app</code>.", "<code>anyco-gateway-as</code> issues T3 only if the subject is a T2 from <code>anyco-agent-a-as</code> (the one server it trusts), the user is in <code>anyco-engineers</code>, and the scopes are <code>pr:read pr:review</code>.", "Same user, audience <code>anyco-gateway-as</code>; Okta adds the agent's app as the outermost <code>act</code>.", "One step. Okta takes the actor from the client that authenticates: its custom authorization server rejects an RFC 8693 <code>actor_token</code>."],render:()=>exchangeExtra()},
+  "b:obotoken":{title:"T3 · Bearer · agent → the Gateway",icon:"send",points:["What one tool call carries to the Gateway: T3, from the agent's token exchange at <code>anyco-gateway-as</code>."],render:()=>bTokenExtra()},
+  "b:gateway":{title:"AgentCore Gateway",icon:"door-open",points:["CUSTOM_JWT: accepts only <code>anyco-gateway-as</code> tokens.", "Shared interceptor, policy engine and tool Lambdas (card 2 on Deploy)."]},
+  "b:interceptor":{title:"Lambda interceptor (shared)",icon:"filter",points:["The shared interceptor function; Patterns A and B both use it.", "Puts the user from the verified token into <code>caller.user</code>."],render:()=>bInterceptorExtra()},
+  "b:cedar":{title:"AgentCore Policy · Cedar (Pattern A permits)",icon:"scale",points:["Requires <code>cid</code> = the agent, a user, and the tool's scope."],render:()=>bCedarExtra()},
+  "b:tools":{title:"Tool Lambdas · acting as the engineer",icon:"wrench",points:["Post as <code>caller.user</code>; list only their reviews."]},
+});
+const tokFull=(label,t,none)=>sec(label)+(t?pre(JSON.stringify(t,null,1))+whoTable(t):`<div class="mt-1 text-[12px] text-zinc-400">${none||"Run the Pattern A agent once."}</div>`);
+function whoTable(t){   // under each token: who every ID in it is
+  const p=(t&&t.payload)||{}, W=STATUS.who||{}, CL=W.clients||{}, IS=W.issuers||{}, AU=W.audiences||{};
+  const client=id=>CL[id]?`<b>${esc(CL[id][0])}</b> · ${esc(CL[id][1])}`:"";
+  const person=v=>/^00u/.test(String(v))?`the engineer (Okta user ID${p.email?` of ${esc(p.email)}`:""})`:/@/.test(String(v))?"the engineer this token acts for":"";
+  const rows=[];
+  if(p.iss) rows.push(["iss",p.iss,`issued by ${esc(IS[p.iss]||"?")}`]);
+  if(p.aud) rows.push(["aud",p.aud,AU[p.aud]?esc(AU[p.aud]):IS[p.aud]?`for ${esc(IS[p.aud])}: it redeems this ID-JAG`:""]);
+  if(p.sub) rows.push(["sub",p.sub,person(p.sub)||client(p.sub)]);
+  ["cid","client_id"].forEach(k=>{ if(p[k]) rows.push([k,p[k],`the client that asked for this token: ${client(p[k])||"?"}`]); });
+  let a=p.act, path="act", n=0;
+  while(a&&a.sub){ n++;
+    rows.push([path+".sub",a.sub,(n===1?"<span class='text-zinc-500'>newest actor:</span> ":"")+(client(a.sub)||"?")+(a.sub_profile?` <span class="text-zinc-400">(${esc(a.sub_profile)})</span>`:"")]);
+    a=a.act; path+=".act"; }
+  if(!rows.length) return "";
+  return `<div class="mt-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Who is who in this token</div>
+    <table class="mt-1 w-full text-[12.5px]"><tbody>${rows.map(([k,v,w])=>`<tr class="border-t border-zinc-100 align-top">
+      <td class="py-1 pr-2 font-mono text-zinc-500 whitespace-nowrap">${esc(k)}</td>
+      <td class="py-1 pr-2 font-mono text-zinc-700 break-all">${esc(String(v))}</td>
+      <td class="py-1 text-zinc-800">${w||"<span class='text-zinc-400'>—</span>"}</td></tr>`).join("")}</tbody></table>
+    ${n>1?`<div class="mt-1 text-[12px] text-zinc-500">Read <code>act</code> from the outside in: each level is an earlier actor, the innermost is where the chain started.</div>`:""}`;
+}
+const T2=()=>LASTBACKEND&&((LASTBACKEND.out||{}).body||{}).access_token;
+const T3=()=>LASTOBO_JWT&&LASTOBO_JWT.payload?LASTOBO_JWT:null;
+function backendExtra(){ return tokFull("T2 · the token this exchange returned", T2()); }
+function t2Extra(){ return tokFull("T2 · the token Runtime A receives", T2()); }
+function jwtExtraB(){ return tokFull("T1 · Ada's sign-in token", MYTOKEN&&MYTOKEN.payload?MYTOKEN:null, STATUS.user?"loading…":"Sign in to see it."); }
+function toolNodeB(short){ const permitted=["get_pull_request","post_review","list_my_reviews"].includes(short);
+  return {title:short+"()",icon:"wrench",points: permitted
+    ? [`Permit <code>AnycoA_${short}</code>: agent, user, scope <code>${short==="post_review"?"pr:review":"pr:read"}</code>.`,
+       short==="post_review"?"Posts as the engineer." : short==="list_my_reviews"?"Only the engineer's reviews.":"Reads the PR for the engineer."]
+    : ["No permit: hidden from <code>tools/list</code>."],
+    render:()=>toolSpecExtra(short)}; }
+Object.assign(NODES,{
+  "b:user":{title:"Engineer",icon:"user",points:["Signs in and asks the agent to act for them.", "Tools act as them: reviews post in their name."]},
+  "b:okta":{title:"Okta · anyco-users-as (sign-in)",icon:"key-round",points:["Signs the engineer in through the web app <code>anyco-eng-login-app</code> and issues T1 (<code>aud api://anyco-pr-agent-aud</code>).", "Only <code>anyco-engineers</code> get the scope <code>pr-agent.invoke</code>: Grace can sign in, but her token can't call the agent.", "The exchanged tokens come from two other servers: <code>anyco-agent-a-as</code> issues T2, <code>anyco-gateway-as</code> issues T3."],render:()=>jwtFull()},
+  "b:t1":{title:"T1 · Ada's sign-in token (anyco-users-as)",icon:"key-round",points:["Issued at sign-in to <code>anyco-eng-login-app</code>: <code>aud api://anyco-pr-agent-aud</code>, scope <code>pr-agent.invoke</code>.", "It stays in the backend: it's the <b>subject</b> of the backend's exchange, and no agent accepts it."],render:()=>jwtExtraB()},
+  "b:backend":{title:"Your backend · token exchange (anyco-console-backend-app)",icon:"server",points:["One RFC 8693 exchange at <code>anyco-agent-a-as</code>, as the backend's own <b>service</b> app.", "Subject = T1. <code>anyco-agent-a-as</code> trusts <code>anyco-users-as</code>; a rule allows it for <code>anyco-engineers</code>.", "Out: T2, for this agent only (<code>aud api://anyco-agent-a-aud</code>), with <code>act</code> = the backend."],render:()=>backendExtra()},
+  "b:jwt":{title:"T2 · backend → Runtime A",icon:"key-round",points:["What the backend's call to Runtime A carries.", "Runtime A accepts only <code>anyco-agent-a-as</code> tokens with <code>cid</code> = the backend."],render:()=>t2Extra()},
+});
+["get_pull_request","post_review","list_my_reviews","search_context","merge_pull_request"].forEach(t=>NODES["b:tool:"+t]=toolNodeB(t));
+
+const XB=[];
+function renderExplainB(){
+  const relChips=`<div class="mt-3 flex gap-2"><span class="rounded-full bg-indigo-600 px-2.5 py-0.5 text-[12px] font-semibold text-white">on behalf of the engineer</span></div>`;
+  $("#xflowb").innerHTML=`
+    <div class="flex w-[230px] shrink-0 flex-col justify-center">
+      ${xcard("user","Engineer","asks the agent to act for them","zinc","user")}
+      ${down("sign in")}
+      ${xcard("okta","Okta","anyco-users-as · sign-in","violet","key-round")}
+    </div>
+    ${across("T1","sign-in token · stays in the backend","b:t1")}
+    <div class="flex w-[200px] shrink-0 flex-col justify-center">
+      ${xcard("b:backend","Your backend","token exchange at anyco-agent-a-as","violet","server")}
+    </div>
+    ${across("T2","aud = the agent · act = backend","jwt")}
+    <div class="min-w-0 flex-1 rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/30 p-4">
+      <div class="mb-3 text-[11px] font-semibold uppercase tracking-wide text-blue-600">AgentCore Runtime A</div>
+      ${xcard("b:agent","PR Review Agent","Strands · AG-UI","blue","bot",relChips)}
+      ${down("subject token = T2")}
+      ${xcard("exchange","AgentCore Identity ⇄ Okta","token exchange at anyco-gateway-as · RFC 8693","indigo","repeat")}
+    </div>
+    ${across("T3","aud = gateway · act = agent → backend → web app","b:obotoken")}
+    <div class="min-w-0 flex-1 rounded-2xl border-2 border-dashed border-orange-200 bg-orange-50/30 p-4" data-xnode="b:gateway">
+      <div class="mb-3 flex items-center text-[11px] font-semibold uppercase tracking-wide text-orange-600 cursor-pointer">AgentCore Gateway <span class="ml-2 font-normal normal-case text-orange-400">CUSTOM_JWT · MCP</span></div>
+      ${xcard("b:interceptor","Lambda interceptor","stamps caller.user from the token","teal","filter")}
+      ${down("then")}
+      ${xcard("b:cedar","AgentCore Policy","cid = agent · backend in act · user · scope","indigo","scale")}
+      ${down("permit")}
+      ${xcard("b:tools","Tools","act as the engineer","emerald","wrench")}
+    </div>`;
+  $("#xlegendb").innerHTML=`<div class="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm text-[13.5px] text-zinc-600 space-y-1.5">
+     <div class="flex gap-2"><i data-lucide="user" class="h-4 w-4 text-zinc-500"></i><span><b>Who</b>: the engineer (<code>sub</code>, <code>uid</code>)</span></div>
+     <div class="flex gap-2"><i data-lucide="bot" class="h-4 w-4 text-blue-600"></i><span><b>Through</b>: your backend, then the agent (the <code>act</code> trail)</span></div>
+     <div class="flex gap-2"><i data-lucide="scale" class="h-4 w-4 text-indigo-600"></i><span><b>Allowed?</b> AgentCore Policy, per call</span></div></div>
+   <div class="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm"><div class="text-[13px] font-semibold text-zinc-700">On behalf of the engineer</div>
+     <div class="mt-3 flex flex-wrap gap-1.5">${["get_pull_request","post_review","list_my_reviews"].map(t=>`<span onclick="openTool('${t}',event)" class="cursor-pointer rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 font-mono text-[12px] text-emerald-800 hover:ring-2 hover:ring-emerald-200">${t}</span>`).join("")}</div></div>
+   <div class="rounded-xl border border-amber-200 bg-amber-50/50 p-4 text-[13px] text-amber-900/80"><b>Two token exchanges; Okta adds each actor to <code>act</code>.</b> Every token speaks as the engineer (<code>sub</code>, <code>uid</code>); the one the Gateway receives names the agent's app, then your backend, then the web app Ada signed in to. For the Okta AI agent as the actor, see <button onclick="setView('delegation')" class="underline underline-offset-2">Cross App Access</button>.</div>`;
+  icons();
+}
+const PROMPTS_B=[
+  {label:"Post a review on #128 as me",text:"Post a COMMENT review on anyco/receipts-service #128 saying the retry needs an idempotency key.",hint:"post_review as you"},
+  {label:"List my reviews",text:"List my reviews in one short sentence: how many, and on which PRs.",hint:"only yours"},
+  {label:"Merge PR #128",text:"Merge anyco/receipts-service #128.",hint:"no permit"},
+];
+function renderSigninB(){
+  const u=STATUS.user; if(!$("#signin-row-b")) return;
+  $("#signin-row-b").innerHTML = u
+    ? `<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[12px] font-medium text-emerald-700"><i data-lucide="user-check" class="h-3.5 w-3.5"></i>${esc(u.sub)}</span><span class="text-[12px] text-zinc-400">the agent will act as you</span><button onclick="logout()" class="text-[12px] text-zinc-500 underline underline-offset-2">sign out / switch user</button>`
+    : `<a href="/login?back=liveb" class="inline-flex items-center gap-1 rounded-md bg-orange-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-orange-700"><i data-lucide="log-in" class="h-3 w-3"></i> Login with Okta</a><span class="text-[12px] text-zinc-400">ada.lovelace@ / alan.turing@example.com</span>${STATUS.login_error?`<span class="text-[12px] text-rose-600">${esc(STATUS.login_error)}</span>`:""}`;
+  $("#prompt-chips-b").innerHTML=PROMPTS_B.map((p,i)=>`<button onclick="usePromptB(${i})" class="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-[12.5px] text-zinc-700 hover:bg-zinc-100"><i data-lucide="sparkles" class="h-3.5 w-3.5 text-zinc-400"></i>${p.label}<span class="text-[11px] text-zinc-400">· ${p.hint}</span></button>`).join("");
+  const ready=!!(STATUS.deployed_b||{}).runtime;
+  $("#live-pending-b").classList.toggle("hidden",ready);
+  $("#chat-gate-b").innerHTML = !ready?'<i data-lucide="lock" class="h-3 w-3"></i> deploy Pattern A':(!u?'<i data-lucide="lock" class="h-3 w-3"></i> sign in first':'<span class="h-2 w-2 rounded-full bg-emerald-500 pulse-dot"></span> ready');
+  $("#btn-send-b").disabled=!ready||!u||BUSY; icons();
+}
+function usePromptB(i){ $("#chat-input-b").value=PROMPTS_B[i].text; sendB(); }
+
+
+// ---------------- Pattern B · Cross App Access (ID-JAG) drawers ----------------
+const decodedJwt=(t,label)=>{ if(!t) return `<div class="mt-1 text-[12px] text-zinc-400">Sign in to the agent's app to see it.</div>`;
+  const p={...t.payload}; ["iat","exp","auth_time"].forEach(k=>{ if(p[k]) p[k]=`${p[k]}  (${new Date(p[k]*1000).toLocaleString()})`; });
+  return `<div class="mt-2 text-[11px] font-medium text-zinc-500">${label} · header</div>`+pre(JSON.stringify(t.header,null,1))+
+         `<div class="mt-1 text-[11px] font-medium text-zinc-500">payload</div>`+pre(JSON.stringify(p,null,1))+
+         `<div class="mt-1 text-[11px] font-medium text-zinc-500">signature</div>`+pre(t.signature); };
+function cTokensFull(){ return jwtExtraB(); }
+function compareTokens(){
+  const b=LASTOBO&&Object.keys(LASTOBO).length?LASTOBO:null, c=(XJ("final")||{}).payload;
+  const pick=o=>o?Object.fromEntries(["iss","sub","uid","cid","aud","scp","act"].map(k=>[k,k==="act"?(o.act||"(none)"):o[k]])):null;
+  let h=sec("token exchange vs Cross App Access · what the Gateway receives");
+  h+=`<div class="mt-2 grid grid-cols-2 gap-2"><div><div class="text-[11px] font-medium text-indigo-700">OBO/Delegation · RFC 8693 token exchange</div>${b?pre(JSON.stringify(pick(b),null,1)):'<div class="text-[12px] text-zinc-400">run screen 2 once</div>'}</div>
+     <div><div class="text-[11px] font-medium text-fuchsia-700">Cross App Access · ID-JAG</div>${c?pre(JSON.stringify(pick(c),null,1)):'<div class="text-[12px] text-zinc-400">run screen 5 once</div>'}</div></div>`;
+  h+=`<div class="mt-1 text-[11.5px] text-zinc-500">Both speak as the engineer (<code>sub</code>, <code>uid</code>) and both carry <code>act</code>. The actor differs: the agent's Okta app (token exchange) vs the registered Okta AI agent (Cross App Access), so policy can tell them apart by <code>cid</code> and <code>act.sub</code>.</div>`;
+  return h;
+}
+function xaaTrace(){
+  return tokFull("ID-JAG · step 1's output", XJ("id_jag"), "Run the Pattern B agent once.")+
+         tokFull("T3 · step 2's output", XJ("final"), "Run the Pattern B agent once.");
+}
+function xaaExtra(){
+  const d=STATUS.deployed_c||{};
+  return xaaTrace()+more("Setup · Okta",`<ul class="space-y-1.5">`+[
+    `AI agent <code>${esc(d.agent_id||"wlp…")}</code> ACTIVE, <code>private_key_jwt</code>, public key from KMS.`,
+    "Delegation link from the backend agent <code>anyco-backend-agent-oai</code> (machine access): T2 may be step 1's subject.",
+    "Resource connection to <code>anyco-gateway-as</code>: <code>pr:read pr:review</code> only.",
+    "<code>anyco-gateway-as</code> rule: JWT Bearer grant, this agent, <code>anyco-engineers</code> only.",
+  ].map(chk).join("")+`</ul>`)+more("Setup · AWS",`<ul class="space-y-1.5">`+[
+    "Two AgentCore Identity providers, <code>PRIVATE_KEY_JWT</code> with the KMS key, no client secret: <code>anyco-xaa-step1</code> (org AS, <code>TOKEN_EXCHANGE</code>) and <code>anyco-xaa-step2</code> (<code>anyco-gateway-as</code>, <code>JWT_AUTHORIZATION_GRANT</code>).",
+    "Standalone workload identity <code>anyco-pr-agent-xaa-delegate</code> (the Runtime's own one refuses this call).",
+    "Runtime B role: that workload identity, the two providers, <code>kms:Sign</code> on the key (AgentCore signs with the caller's credentials).",
+  ].map(chk).join("")+`</ul>`);
+}
+function cAgentExtra(){
+  let h=sec("code · agent/main.py, AGENT_MODE=xaa (no Okta code, no key)");
+  h+=pre(`@requires_access_token(provider_name="anyco-xaa-step1", scopes=SCOPES,
+    auth_flow="ON_BEHALF_OF_TOKEN_EXCHANGE", force_authentication=True,
+    custom_parameters={"subject_token_type": "…:access_token",
+                       "requested_token_type": "…:id-jag",
+                       "audience": ANYCO_GATEWAY_ISSUER})
+async def get_id_jag(*, access_token): return access_token      # step 1: T2 -> ID-JAG
+
+@requires_access_token(provider_name="anyco-xaa-step2", scopes=SCOPES,
+    auth_flow="ON_BEHALF_OF_TOKEN_EXCHANGE", force_authentication=True)
+async def redeem_id_jag(*, access_token): return access_token   # step 2: ID-JAG -> T3
+
+id_jag = await get_id_jag()              # subject = T2, bound by the Runtime
+wat = identity.get_workload_access_token(WORKLOAD, user_token=id_jag)
+BedrockAgentCoreContext.set_workload_access_token(wat["workloadAccessToken"])
+t3 = await redeem_id_jag()               # subject = the ID-JAG`);
+  h+=more("Check before step 1",pre(`if claims(t2)["cid"] != XAA_BACKEND_CLIENT_ID or claims(t2)["aud"] != XAA_AGENT_AUDIENCE:
+    raise PermissionError("the bearer is not your backend's token for this agent")`));
+  h+=more("Headers on the call to the Gateway (real)",LASTCALL_C&&LASTCALL_C.http?headerTable(LASTCALL_C.http.headers,"C"):`<div class="text-[12px] text-zinc-400">Run the agent once.</div>`);
+  return h;
+}
+const XJ=k=>(LASTXAA&&LASTXAA.jwt||{})[k]||null;
+function cTokenExtra(){ return tokFull("T3 · the token the Gateway receives", XJ("final"), "Run the Pattern B agent once."); }
+function cInterceptorExtra(){
+  const c=LASTCALL_C; let h=sec(`one real delegated call${c&&c.tool?` · ${esc(c.tool)}`:""}`);
+  if(!c||!c.literal_event) return h+`<div class="mt-1 text-[12px] text-zinc-400">Run the Pattern B agent once to capture a real call.</div>`;
+  h+=ioBoxes([["In · the exact Lambda event (credentials masked)",c.literal_event],
+              ["Out · the exact return value: caller.user + caller.acting_agent",c.literal_return]]);
+  return h+more("Code · lambdas/interceptor.py",pre(`claims = decode(header(headers, "Authorization"))   # already verified
+args["caller"] = {"user": claims["sub"], "acting_agent": claims["act"]["sub"],
+                  "client_id": claims["cid"], "scopes": claims["scp"], …}`));
+}
+function cCedarExtra(){ return permitList("AnycoB_","<gateway>"); }
+function toolNodeC(short){ const permitted=["get_pull_request","post_review","list_my_reviews"].includes(short);
+  return {title:short+"()",icon:"wrench",points: permitted
+    ? [`Permit <code>AnycoB_${short}</code>: agent (<code>cid</code>, <code>act</code>), user, scope <code>${short==="post_review"?"pr:review":"pr:read"}</code>.`,
+       short==="post_review"?"Records the engineer and the acting agent." : short==="list_my_reviews"?"Only the engineer's reviews.":"Reads the PR for the engineer."]
+    : ["No permit: hidden from <code>tools/list</code>."],
+    render:()=>toolSpecExtra(short)}; }
+function jwtExtraC(){ return jwtExtraB(); }
+const T2C=()=>LASTBACKEND_C&&((LASTBACKEND_C.out||{}).body||{}).access_token;
+const BJC=()=>LASTBACKEND_C&&LASTBACKEND_C.id_jag;
+function bstep1Extra(){ return tokFull("ID-JAG · the token the backend's step 1 returned", BJC(), "Run the Pattern B agent once."); }
+function bstep2Extra(){ return tokFull("T2 · the token the backend's step 2 returned", T2C(), "Run the Pattern B agent once."); }
+function backendExtraC(){ return bstep1Extra()+bstep2Extra(); }
+function t2ExtraC(){ return tokFull("T2 · the token Runtime B receives", T2C(), "Run the Pattern B agent once."); }
+function step1Extra(){ return tokFull("ID-JAG · the token the agent's step 1 returned", XJ("id_jag"), "Run the Pattern B agent once."); }
+function step2Extra(){ return tokFull("T3 · the token the agent's step 2 returned", XJ("final"), "Run the Pattern B agent once."); }
+Object.assign(NODES,{
+  "c:user":{title:"Engineer",icon:"user",points:["Signs in once, through <code>anyco-eng-login-app</code> (the same sign-in as Pattern A)."]},
+  "c:okta":{title:"Okta · anyco-users-as",icon:"key-round",points:["Signs Ada in; only engineers get <code>pr-agent.invoke</code>."],render:()=>cTokensFull()},
+  "c:jwt":{title:"T1 · Ada's sign-in token (anyco-users-as)",icon:"key-round",points:["The same sign-in as Pattern A, through <code>anyco-eng-login-app</code>."],render:()=>jwtExtraB()},
+  "c:t1":{title:"T1 · Ada's sign-in token (anyco-users-as)",icon:"key-round",points:["The same sign-in as Pattern A, through <code>anyco-eng-login-app</code>.", "It stays in your backend: it's the subject of the backend's exchange."],render:()=>jwtExtraB()},
+  "c:backend":{title:"Your backend · Cross App Access (AI agent anyco-backend-agent-oai)",icon:"server",points:["Your backend is a registered <b>Okta AI agent</b>, so it can ask for an ID-JAG. <code>anyco-agent-b-as</code> trusts <b>no</b> other authorization server: a plain token exchange of T1 there is refused.", "<b>Step 1</b>, org server: T1 → ID-JAG for <code>anyco-agent-b-as</code>. <b>Step 2</b>, <code>anyco-agent-b-as</code>: ID-JAG → T2.", "Both calls signed with <code>private_key_jwt</code> (the backend agent's KMS key)."],render:()=>backendExtraC()},
+  "c:bstep1":{title:"Backend step 1 · Okta org server",icon:"git-merge",points:["Token exchange: T1 → <b>ID-JAG</b> addressed to <code>anyco-agent-b-as</code>, as the AI agent <code>anyco-backend-agent-oai</code>.", "Okta accepts T1 by <b>machine access</b>: a delegation link from <code>anyco-eng-login-app</code> to this AI agent, and T1's <code>aud</code> = its resource URL (<code>api://anyco-pr-agent-aud</code>).", "A resource connection allows <code>anyco-agent-b-as</code> with <code>agent-b.invoke</code>."],render:()=>bstep1Extra()},
+  "c:bstep2":{title:"Backend step 2 · anyco-agent-b-as",icon:"git-merge",points:["<b>JWT bearer</b> grant: ID-JAG → T2. A rule allows it for the backend agent and <code>anyco-engineers</code> only.", "No trusted-server link: <code>anyco-agent-b-as</code> trusts the org server's signature on the ID-JAG."],render:()=>bstep2Extra()},
+  "c:t2":{title:"T2 · backend → Runtime B",icon:"key-round",points:["Runtime B accepts only <code>anyco-agent-b-as</code> tokens with <code>cid</code> = the backend's AI agent.", "<code>act</code> already names the backend agent, with the sign-in app nested."],render:()=>t2ExtraC()},
+  "c:step1":{title:"Step 1 · AgentCore Identity ⇄ Okta org server",icon:"git-merge",points:["Token exchange at the <b>org</b> authorization server: T2 → <b>ID-JAG</b>, as the Okta AI agent (<code>private_key_jwt</code>, its KMS key).", "Okta accepts T2 because of <b>machine access</b>: a delegation link from the backend's AI agent to this AI agent, and T2's <code>aud</code> = this agent's resource URL.", "The ID-JAG is addressed to <code>anyco-gateway-as</code>, which doesn't trust <code>anyco-agent-b-as</code>."],render:()=>step1Extra()},
+  "c:idjag":{title:"ID-JAG · step 1 → step 2",icon:"key-round",points:["The IdP's signed assertion: Ada, with this AI agent acting, for <code>anyco-gateway-as</code>."],render:()=>step1Extra()},
+  "c:step2":{title:"Step 2 · AgentCore Identity ⇄ anyco-gateway-as",icon:"git-merge",points:["<b>JWT bearer</b> grant at <code>anyco-gateway-as</code>: ID-JAG → T3. No trusted-server link is needed: it trusts the org server's signature."],render:()=>step2Extra()},
+  "c:agent":{title:"PR Review Agent · Strands on Runtime B",icon:"bot",points:["Same code, switched by our env var <code>AGENT_MODE=xaa</code>.", "Checks T2 is the backend agent's token for this agent, then asks AgentCore Identity for both XAA steps.", "No Okta code and no key in the agent."],render:()=>cAgentExtra()},
+  "c:xaa":{title:"AgentCore Identity ⇄ Okta · Cross App Access (ID-JAG)",icon:"git-merge",points:["<b>Step 1</b>: T2 → <b>ID-JAG</b> at Okta's org server (machine access).", "<b>Step 2</b>: ID-JAG → T3 at <code>anyco-gateway-as</code>, which doesn't trust <code>anyco-agent-b-as</code>.", "AgentCore Identity does both, signing as the agent with its KMS key."],render:()=>xaaExtra()},
+  "c:token":{title:"T3 · Bearer · agent → the Gateway",icon:"send",points:["What one tool call carries to Gateway: <code>sub</code> = engineer, <code>act</code> = agent → backend agent → sign-in app."],render:()=>cTokenExtra()},
+  "c:gateway":{title:"AgentCore Gateway (shared with Pattern A)",icon:"door-open",points:["Same Gateway as Pattern A; no change needed."]},
+  "c:interceptor":{title:"Lambda interceptor (same function)",icon:"filter",points:["Same function; also stamps <code>caller.acting_agent</code> from <code>act</code>."],render:()=>cInterceptorExtra()},
+  "c:cedar":{title:"AgentCore Policy · Cedar (Pattern B permits)",icon:"scale",points:["Requires <code>cid</code> and <code>act</code> = the agent, the backend's AI agent in <code>act</code>, a user, and the scope."],render:()=>cCedarExtra()},
+  "c:tools":{title:"Tool Lambdas · for the engineer, via the agent",icon:"wrench",points:["Record both: <code>author</code> (engineer) and <code>acting_agent</code>."]},
+});
+["get_pull_request","post_review","list_my_reviews","search_context","merge_pull_request"].forEach(t=>NODES["c:tool:"+t]=toolNodeC(t));
+function renderExplainC(){
+  const chip=`<div class="mt-3 flex gap-2"><span class="rounded-full bg-fuchsia-600 px-2.5 py-0.5 text-[12px] font-semibold text-white">the engineer's delegate</span></div>`;
+  $("#xflowc").innerHTML=`
+    <div class="flex w-[230px] shrink-0 flex-col justify-center">
+      ${xcard("c:user","Engineer","asks the agent to act for them","zinc","user")}
+      ${down("sign in")}
+      ${xcard("c:okta","Okta","anyco-users-as · sign-in","violet","key-round")}
+    </div>
+    ${across("T1","sign-in token · stays in the backend","c:t1")}
+    <div class="w-[230px] shrink-0 rounded-2xl border-2 border-dashed border-violet-200 bg-violet-50/30 p-4" data-xnode="c:backend">
+      <div class="mb-3 cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-violet-600">Your backend · AI agent</div>
+      ${xcard("c:bstep1","Step 1 · Okta org server","token exchange · T1 → ID-JAG","violet","git-merge")}
+      ${down("ID-JAG")}
+      ${xcard("c:bstep2","Step 2 · anyco-agent-b-as","JWT bearer · ID-JAG → T2","violet","git-merge")}
+    </div>
+    ${across("T2","aud = the agent · act = backend agent → web app","c:t2")}
+    <div class="min-w-0 flex-1 rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/30 p-4">
+      <div class="mb-3 text-[11px] font-semibold uppercase tracking-wide text-blue-600">AgentCore Runtime B</div>
+      ${xcard("c:agent","PR Review Agent","Strands · AG-UI","blue","bot",chip)}
+      ${down("T2 (bound by the Runtime)")}
+      ${xcard("c:step1","Step 1 · Okta org server","token exchange · T2 → ID-JAG (machine access)","violet","git-merge")}
+      ${down("ID-JAG")}
+      ${xcard("c:step2","Step 2 · anyco-gateway-as","JWT bearer · ID-JAG → T3","violet","git-merge")}
+    </div>
+    ${across("T3","aud = gateway · act = agent → backend agent → web app","c:token")}
+    <div class="min-w-0 flex-1 rounded-2xl border-2 border-dashed border-orange-200 bg-orange-50/30 p-4" data-xnode="c:gateway">
+      <div class="mb-3 flex items-center text-[11px] font-semibold uppercase tracking-wide text-orange-600 cursor-pointer">AgentCore Gateway <span class="ml-2 font-normal normal-case text-orange-400">CUSTOM_JWT · shared</span></div>
+      ${xcard("c:interceptor","Lambda interceptor","stamps caller.user + acting_agent","teal","filter")}
+      ${down("then")}
+      ${xcard("c:cedar","AgentCore Policy","cid + act = agent · backend in act · scope","indigo","scale")}
+      ${down("permit")}
+      ${xcard("c:tools","Tools","for the engineer, via the agent","emerald","wrench")}
+    </div>`;
+  $("#xlegendc").innerHTML=`<div class="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm text-[13.5px] text-zinc-600 space-y-1.5">
+     <div class="flex gap-2"><i data-lucide="user" class="h-4 w-4 text-zinc-500"></i><span><b>For whom</b>: the engineer (<code>sub</code>, <code>uid</code>)</span></div>
+     <div class="flex gap-2"><i data-lucide="bot" class="h-4 w-4 text-fuchsia-600"></i><span><b>By whom</b>: the agent (<code>act.sub</code>, <code>cid</code>)</span></div>
+     <div class="flex gap-2"><i data-lucide="scale" class="h-4 w-4 text-indigo-600"></i><span><b>Allowed?</b> AgentCore Policy, per call</span></div></div>
+   <div class="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm"><div class="text-[13px] font-semibold text-zinc-700">As the engineer's delegate</div>
+     <div class="mt-3 flex flex-wrap gap-1.5">${["get_pull_request","post_review","list_my_reviews"].map(t=>`<span onclick="openTool('${t}',event)" class="cursor-pointer rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 font-mono text-[12px] text-emerald-800 hover:ring-2 hover:ring-emerald-200">${t}</span>`).join("")}</div></div>
+   <div data-xnode="c:token" class="xnode cursor-pointer rounded-xl border border-fuchsia-200 bg-fuchsia-50/50 p-4 text-[13px] text-fuchsia-900/80"><b>The actor is the Okta AI agent.</b> Pattern A's token exchange also gets <code>act</code>, but it names the agent's regular Okta app; here <code>act</code> names the registered AI agent, through Cross App Access. Okta for AI Agents (beta, paid). <span class="font-medium text-fuchsia-700">Compare the tokens ›</span></div>`;
+  icons();
+}
+const PROMPTS_C=[
+  {label:"Post a review on #128 for me",text:"Post a COMMENT review on anyco/receipts-service #128 for me saying the retry needs an idempotency key.",hint:"post_review · delegated"},
+  {label:"List my reviews",text:"List my reviews in one short sentence: how many, on which PRs, and who posted them.",hint:"only yours"},
+  {label:"Merge PR #128",text:"Merge anyco/receipts-service #128.",hint:"no permit"},
+];
+function renderSigninC(){
+  const u=STATUS.user; if(!$("#signin-row-c")) return;
+  $("#signin-row-c").innerHTML = u
+    ? `<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[12px] font-medium text-emerald-700"><i data-lucide="user-check" class="h-3.5 w-3.5"></i>${esc(u.sub)}</span><span class="text-[12px] text-zinc-400">signed in (anyco-eng-login-app)</span><button onclick="logout()" class="text-[12px] text-zinc-500 underline underline-offset-2">sign out / switch user</button>`
+    : `<a href="/login?back=livec" class="inline-flex items-center gap-1 rounded-md bg-orange-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-orange-700"><i data-lucide="log-in" class="h-3 w-3"></i> Login with Okta</a><span class="text-[12px] text-zinc-400">ada.lovelace@ / alan.turing@example.com</span>${STATUS.login_error?`<span class="text-[12px] text-rose-600">${esc(STATUS.login_error)}</span>`:""}`;
+  $("#prompt-chips-c").innerHTML=PROMPTS_C.map((p,i)=>`<button onclick="usePromptC(${i})" class="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-[12.5px] text-zinc-700 hover:bg-zinc-100"><i data-lucide="sparkles" class="h-3.5 w-3.5 text-zinc-400"></i>${p.label}<span class="text-[11px] text-zinc-400">· ${p.hint}</span></button>`).join("");
+  const ready=!!(STATUS.deployed_c||{}).runtime;
+  $("#live-pending-c").classList.toggle("hidden",ready);
+  $("#chat-gate-c").innerHTML = !ready?'<i data-lucide="lock" class="h-3 w-3"></i> deploy Pattern B':(!u?'<i data-lucide="lock" class="h-3 w-3"></i> sign in first':'<span class="h-2 w-2 rounded-full bg-emerald-500 pulse-dot"></span> ready');
+  $("#btn-send-c").disabled=!ready||!u||BUSY; icons();
+}
+function usePromptC(i){ $("#chat-input-c").value=PROMPTS_C[i].text; sendC(); }
+
+
+// ---------------- Pattern C · Cross App Access, machine (event-triggered) ----------------
+let LASTEVENT=null, BUSY_E=false, EV_TYPE="pr.opened", EVCODE=null;
+const EV_TYPES=[{id:"pr.opened",t:"PR opened",s:"run the partner's compliance checks (partner:read)"},
+                {id:"pr.approved",t:"PR approved",s:"also record the result (needs partner:write: never granted)"}];
+const evTrace=()=>((LASTEVENT||{}).agent||{}).trace||{};
+const EJ=k=>k==="t1"?(LASTEVENT||{}).t1:(evTrace().jwt||{})[k];          // the run's live tokens
+const evTok=(label,k)=>tokFull(label,EJ(k)&&EJ(k).payload?EJ(k):null,"Publish an event once.");
+function eOktaExtra(){
+  const d=STATUS.deployed_e||{};
+  return sec("setup · Okta")+`<ul class="mt-1 space-y-1.5">`+[
+    `Event source <code>anyco-event-source-app</code>: API Services app, client credentials, <code>private_key_jwt</code> with its own KMS key.`,
+    `AI agent <code>anyco-event-agent-oai</code>, registered as a resource (<code>${esc(d.agent_audience||"api://anyco-event-agent-aud")}</code>).`,
+    `Machine access: <code>anyco-event-source-app</code> is an allowed caller, so its access token may be step 1's subject.`,
+    `Resource connection: the agent may reach <code>anyco-partner-mcp-as</code> with <code>partner:read</code> only.`,
+  ].map(chk).join("")+`</ul>`;
+}
+function eAgentExtra(){
+  if(!EVCODE){ EVCODE="loading…"; fetch("/api/code/event-agent-core").then(r=>r.json()).then(j=>{ EVCODE=j.text||"not found"; if(_panelNode) openNodePanel(_panelNode); }); }
+  const d=STATUS.deployed_e||{};
+  return sec("code · agent_event/main.py (no Okta code, no key)")+pre(EVCODE)+
+    more("Its inbound authorizer",pre(`discoveryUrl    ${d.agent_issuer||"<anyco-event-agent-as issuer>"}/.well-known/openid-configuration
+allowedAudience ${d.agent_audience||"api://anyco-event-agent-aud"}
+allowedScopes   agent.invoke
+customClaims    cid == <anyco-event-source-app>`));
+}
+function eMcpExtra(){
+  const calls=evTrace().calls||[];
+  let h=sec("the last run · the agent's calls");
+  h+=calls.length?calls.map(c=>`<div class="mt-2 rounded-lg border ${/refused/i.test(c.result||"")?"border-rose-200":"border-emerald-200"} p-2"><div class="font-mono text-[12px] font-semibold text-zinc-800">${esc(c.tool)}</div>`+pre(JSON.stringify({args:c.args,result:c.result},null,1))+`</div>`).join("")
+                 :`<div class="mt-1 text-[12px] text-zinc-400">Publish an event once.</div>`;
+  return h+more("Who checks what",`<ul class="space-y-1.5">`+[
+    "The partner's Runtime admits only partner tokens: issuer <code>anyco-partner-mcp-as</code>, <code>aud api://anyco-partner-mcp-aud</code>, <code>cid</code> = the agent.",
+    "Each tool checks again: <code>act.sub</code> = the agent and the tool's scope."].map(chk).join("")+`</ul>`);
+}
+Object.assign(NODES,{
+  "e:source":{title:"Event source · Okta service app anyco-event-source-app",icon:"radio",points:["The <b>subject</b>: an app, not a person.", "Signs with its own KMS key; no client secret."],render:()=>eOktaExtra()},
+  "e:sns":{title:"SNS → trigger Lambda",icon:"radio",points:["The Lambda plays the event source: it gets T1 with the source's KMS key.", "Then calls the agent with T1 as the Bearer (OAuth, no IAM)."],render:()=>LASTEVENT&&LASTEVENT.event?sec("the event, from the last run")+pre(JSON.stringify(LASTEVENT.event,null,1)):""},
+  "e:okta":{title:"Okta · anyco-event-agent-as",icon:"key-round",points:["Client credentials for the event source, for the agent's resource URL.", "Out: T1, <code>sub</code> = the event source, <code>aud</code> = the agent."],render:()=>eOktaExtra()},
+  "e:t1":{title:"T1 · the event source's own token",icon:"key-round",points:["The Bearer on the call to the agent, and the subject of step 1."],render:()=>evTok("T1 · the token the agent receives","t1")},
+  "e:agent":{title:"Event agent · Strands on AgentCore Runtime",icon:"bot",points:["Its JWT authorizer admits only T1: issuer <code>anyco-event-agent-as</code>, <code>aud</code> = the agent, <code>cid</code> = the event source.", "Asks AgentCore Identity for both XAA steps; no Okta code and no key in the agent."],render:()=>eAgentExtra()},
+  "e:idjag":{title:"Step 1 · AgentCore Identity ⇄ Okta org server",icon:"git-merge",points:["Token exchange: T1 → <b>ID-JAG</b>, as the AI agent <code>anyco-event-agent-oai</code> (its KMS key).", "Okta accepts T1 by <b>machine access</b>: the event source is an allowed caller, and T1's <code>aud</code> = the agent's resource URL."],render:()=>evTok("ID-JAG · step 1's output","id_jag")},
+  "e:jag":{title:"ID-JAG · step 1 → step 2",icon:"key-round",points:["The IdP's signed assertion: the event source, with this agent acting, for <code>anyco-partner-mcp-as</code>."],render:()=>evTok("ID-JAG · step 1's output","id_jag")},
+  "e:step2":{title:"Step 2 · AgentCore Identity ⇄ anyco-partner-mcp-as",icon:"git-merge",points:["<b>JWT bearer</b>: ID-JAG → the partner token. No trusted-server link: it trusts the org server's signature."],render:()=>evTok("Partner token · step 2's output","partner")},
+  "e:token":{title:"Partner token · agent → partner MCP",icon:"send",points:["Issued by the partner's authorization server, not the agent's.", "<code>sub</code> = the event source, <code>act</code> = the agent."],render:()=>evTok("Partner token · what the partner MCP server receives","partner")},
+  "e:mcp":{title:"Partner MCP server · its own Okta issuer",icon:"server",points:["The agent calls it directly with the partner token; there's no Gateway here."],render:()=>eMcpExtra()},
+  "e:tool:get_compliance_checks":{title:"get_compliance_checks()",icon:"wrench",points:["Needs <code>partner:read</code>: granted by the resource connection."],render:()=>eMcpExtra()},
+  "e:tool:record_compliance_result":{title:"record_compliance_result()",icon:"wrench",points:["Needs <code>partner:write</code>: the connection never grants it, so the tool refuses."],render:()=>eMcpExtra()},
+});
+function renderExplainE(){
+  $("#xflowe").innerHTML=`
+    <div class="flex w-[230px] shrink-0 flex-col justify-center">
+      ${xcard("e:source","Event source","an app · Okta service app","zinc","radio")}
+      ${down("publishes")}
+      ${xcard("e:sns","SNS → Lambda","gets T1 as the event source","amber","zap")}
+    </div>
+    ${across("T1","sub = event source · aud = the agent","e:t1")}
+    <div class="min-w-0 flex-1 rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/30 p-4">
+      <div class="mb-3 text-[11px] font-semibold uppercase tracking-wide text-blue-600">AgentCore Runtime</div>
+      ${xcard("e:agent","Event agent","Strands · Okta AI agent anyco-event-agent-oai","blue","bot")}
+      ${down("T1 (bound by the Runtime)")}
+      ${xcard("e:idjag","Step 1 · Okta org server","token exchange · T1 → ID-JAG (machine access)","violet","git-merge")}
+      ${down("ID-JAG")}
+      ${xcard("e:step2","Step 2 · anyco-partner-mcp-as","JWT bearer · ID-JAG → partner token","violet","git-merge")}
+    </div>
+    ${across("Partner token","sub = event source · act = agent","e:token")}
+    <div class="flex w-[250px] shrink-0 flex-col justify-center rounded-2xl border-2 border-dashed border-emerald-200 bg-emerald-50/30 p-4">
+      <div class="mb-3 text-[11px] font-semibold uppercase tracking-wide text-emerald-600">Partner · its own Okta issuer</div>
+      ${xcard("e:mcp","Partner MCP","AgentCore Runtime · JWT inbound","emerald","server")}
+    </div>`;
+  $("#xlegende").innerHTML=`<div class="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm text-[13.5px] text-zinc-600 space-y-1.5">
+     <div class="flex gap-2"><i data-lucide="radio" class="h-4 w-4 text-zinc-500"></i><span><b>For whom</b>: the event source (<code>sub</code>)</span></div>
+     <div class="flex gap-2"><i data-lucide="bot" class="h-4 w-4 text-amber-600"></i><span><b>By whom</b>: the agent (<code>act.sub</code>)</span></div>
+     <div class="flex gap-2"><i data-lucide="scale" class="h-4 w-4 text-indigo-600"></i><span><b>Allowed?</b> Okta (machine access, connection), then the partner's server</span></div></div>
+   <div class="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm"><div class="text-[13px] font-semibold text-zinc-700">What the partner granted</div>
+     <div class="mt-3 flex flex-wrap gap-1.5"><span class="rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 font-mono text-[12px] text-emerald-800">get_compliance_checks</span><span class="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 font-mono text-[12px] text-rose-700">record_compliance_result · refused</span></div>
+     <div class="mt-2 text-[12px] text-zinc-500">The connection grants <code>partner:read</code> only.</div></div>
+   <div data-xnode="e:token" class="xnode cursor-pointer rounded-xl border border-amber-200 bg-amber-50/50 p-4 text-[13px] text-amber-900/80"><b>No user anywhere.</b> The event source's own token is the subject, and the partner token still names the agent in <code>act</code>. <span class="font-medium text-amber-700">See the partner token ›</span></div>`;
+  icons();
+}
+function renderLiveE(){
+  const d=STATUS.deployed_e||{}, ready=!!d.runtime, e=LASTEVENT, t=evTrace();
+  $("#live-pending-e").classList.toggle("hidden",ready);
+  $("#ev-gate").innerHTML=!ready?'<i data-lucide="lock" class="h-3 w-3"></i> deploy Pattern C':(BUSY_E?'<span class="h-2 w-2 rounded-full bg-amber-500 pulse-dot"></span> running':'<span class="h-2 w-2 rounded-full bg-emerald-500 pulse-dot"></span> ready');
+  $("#btn-publish").disabled=!ready||BUSY_E;
+  $("#ev-types").innerHTML=EV_TYPES.map(x=>`<button onclick="EV_TYPE='${x.id}';renderLiveE()" class="flex items-start gap-2 rounded-lg border px-3 py-2 text-left ${EV_TYPE===x.id?'border-amber-400 bg-amber-50':'border-zinc-200 bg-white hover:bg-zinc-50'}"><i data-lucide="${EV_TYPE===x.id?'circle-dot':'circle'}" class="mt-0.5 h-4 w-4 ${EV_TYPE===x.id?'text-amber-600':'text-zinc-300'}"></i><span><span class="font-mono text-[13px] font-semibold text-zinc-900">${x.id}</span> <span class="text-[13px] text-zinc-700">${x.t}</span><span class="block text-[12px] text-zinc-500">${x.s}</span></span></button>`).join("");
+  const has=!!(e&&e.run_id), err=e&&(e.error||(e.agent||{}).error);
+  const P=k=>(EJ(k)||{}).payload||{}, set=(id,v)=>{ const el=$("#"+id); if(el&&v) el.textContent=v; };
+  if(has){
+    set("ev-sub-sns",`event ${(e.event||{}).type||"?"} · ${(e.event||{}).repo||""} #${(e.event||{}).pr||""}`);
+    set("ev-sub-run",err?`✗ ${err.slice(0,80)}`:`run ${e.run_id.slice(0,8)} · ${((e.total_ms||0)/1000).toFixed(1)} s end to end`);
+    if(P("id_jag").aud) set("ev-sub-1",`ID-JAG: aud …${String(P("id_jag").aud).slice(-12)} · act = the agent`);
+    if(P("partner").aud) set("ev-sub-2",`partner token: aud ${P("partner").aud} · scp ${(P("partner").scp||[]).join(" ")}`);
+    const res=n=>{ const c=(t.calls||[]).find(x=>bare(x.tool)===n); return c?(/refused/i.test(c.result||"")?" ✗":" ✓"):""; };
+    set("ev-tool-1","get_compliance_checks"+res("get_compliance_checks")); set("ev-tool-2","record_compliance_result"+res("record_compliance_result"));
+    $("#agui-ticker-e").textContent=err?`refused: ${err}`:`done · ${(t.calls||[]).map(c=>`${bare(c.tool)}: ${/refused/i.test(c.result||"")?"refused":"ok"}`).join(" · ")}`;
+  }
+  $("#agui-status-e").textContent=BUSY_E?"running":has?(err?"failed":"done"):"idle";
+  $("#ev-answer").innerHTML=has?(err?`<span class="text-rose-600">${esc(err)}</span>`:esc((e.agent||{}).answer||"")):`<span class="text-zinc-400">No run yet.</span>`;
+  $("#ev-when").textContent=has?new Date(parseInt(e.sk)).toLocaleString():"";
+  icons();
+}
+async function loadLastEvent(after=0){
+  const j=await (await fetch(`/api/last-event?after=${after}`)).json();
+  if(j&&j.run_id){ LASTEVENT=j; return true; } return false;
+}
+async function publishEvent(){
+  BUSY_E=true; renderLiveE(); const st=$("#ev-status");
+  try{
+    st.textContent="publishing to SNS…";
+    const r=await post("/api/event-publish",{type:EV_TYPE,repo:$("#ev-repo").value,pr:parseInt($("#ev-pr").value||"128")});
+    const j=await r.json(); if(j.error) throw new Error(j.error);
+    const t0=Date.now();
+    for(let i=0;i<60;i++){
+      st.textContent=`published · message ${j.message_id.slice(0,8)} · the agent is running… ${Math.round((Date.now()-t0)/1000)} s`;
+      await new Promise(res=>setTimeout(res,3000));
+      if(await loadLastEvent(j.published_ms)){ st.textContent=`done in ${Math.round((Date.now()-t0)/1000)} s · click a block for the details`; break; }
+    }
+  }catch(err){ st.textContent=`✗ ${err.message}`; }
+  BUSY_E=false; if(openNodePanel._f) openNodePanel._f={}; renderLiveE(); if(_panelNode) openNodePanel(_panelNode);
+}
+$("#btn-publish").onclick=publishEvent;
+
+// ---------------- Scenario A1: token exchange with the Okta AI agent as the client ----------------
+async function runA1(){
+  const out=$("#a1-out"), btn=$("#btn-a1"); btn.disabled=true; out.innerHTML=`<span class="text-zinc-400">sending…</span>`;
+  try{
+    const r=await post("/api/a1",{}); const j=await r.json();
+    if(!r.ok){ out.innerHTML=`<span class="text-rose-600">${esc(j.error||r.status)}</span>`; return; }
+    const ok=j.response.status===200, b=j.response.body||{};
+    out.innerHTML=`<div class="rounded-lg px-3 py-2 text-[13px] ${ok?'bg-emerald-50 text-emerald-800':'bg-rose-50 text-rose-800'}">
+        <b>${ok?"Okta issued a token":"Okta refused it"}</b> · HTTP ${j.response.status}${ok?"":` · <code>${esc(b.error||"")}</code>: ${esc(b.error_description||"")}`}</div>
+      ${ok?"":`<div class="mt-2 text-[12.5px] text-zinc-600">Okta's on-behalf-of exchange takes only a service app as the client; it refuses an Okta AI agent (with or without a linked sign-in app). An AI agent acts for a user through Cross App Access: see Pattern B.</div>`}
+      <div class="mt-3 grid grid-cols-2 gap-3">
+        <div><div class="text-[11px] font-medium text-blue-700">Request · as sent</div>${pre(JSON.stringify(j.request,null,1))}</div>
+        <div><div class="text-[11px] font-medium ${ok?'text-emerald-700':'text-rose-700'}">Okta's answer</div>${pre(JSON.stringify(j.response,null,1))}</div>
+      </div>`;
+  }catch(e){ out.innerHTML=`<span class="text-rose-600">${esc(String(e))}</span>`; }
+  finally{ btn.disabled=false; }
+}
+
+// ---------------- Where Pattern A stops (slide) ----------------
+const GAPS=[
+ ["building-2","The resource belongs to someone else","another Okta org, a SaaS vendor, a partner",
+  "Token exchange needs the subject's issuer to be a <b>trusted server</b>, and that only works inside one Okta org.",
+  "The IdP issues an <b>ID-JAG</b> addressed to that resource's own authorization server, which redeems it. Nothing is shared but trust in the IdP.",
+  "A SaaS app's authorization server can't add your anyco-agent-a-as as a trusted server, so there's no way to exchange T2 there. Without XAA the usual route is that app's own OAuth flow, with consent per user. With XAA each side keeps its own authorization server and the admin sets up the connection once."],
+ ["bot","The agent as a governed identity","owners, lifecycle, one switch to turn it off",
+  "The agent is a plain <b>service app</b>. An Okta AI agent can't do this exchange at all (Scenario A1: 403).",
+  "The agent is a registered <b>Okta AI agent</b>: in the directory, with <b>resource connections</b> on the agent itself (which servers, which scopes), and named <code>ai_agent</code> in tokens and logs.",
+  "Deactivating the AI agent stops every token it could get, whatever each authorization server's rules allow."],
+ ["link","Servers that don't trust each other","each authorization server trusts only the IdP",
+  "Every hop needs a <b>trusted-server</b> link: <code>anyco-agent-a-as</code> trusts <code>anyco-users-as</code>, <code>anyco-gateway-as</code> trusts <code>anyco-agent-a-as</code>.",
+  "No authorization server trusts another. <code>anyco-agent-b-as</code> and <code>anyco-gateway-as</code> each redeem an <b>ID-JAG</b> signed by the IdP, for a client the admin connected to them.",
+  "In Pattern B a plain token exchange at anyco-agent-b-as is refused: \"The 'subject_token' issuer isn't a trusted authorization server.\" Your backend and the agent both use Cross App Access instead."],
+ ["radio","No user: act for an app","an event, a batch job, another service",
+  "Token exchange needs a user's token as the subject.",
+  "Okta's <b>machine access</b>: a delegation link lets an app's own token be the subject. That's Pattern C.",
+  "The event source's T1 must have aud = the agent's resource URL; the delegation link authorizes the hand-off."],
+];
+const GAPSB=[
+ ["radio","No person to act for","an event, a batch job, a webhook",
+  "Every chain starts from T1, a person's sign-in token, and every token after it names that person as <code>sub</code>.",
+  "Okta <b>machine access</b>: the event source's own access token is the subject, so <code>sub</code> is the app.",
+  "In Pattern C the Lambda gets T1 by client credentials as anyco-event-source-app; no one signs in."],
+ ["clock","Work after the person is gone","scheduled or long-running jobs",
+  "The chain lives only as long as the person's tokens. Once the sign-in token expires, the backend can't start a new chain without them.",
+  "The event source gets a fresh T1 with client credentials for every event, whenever it runs.",
+  "T1 in Pattern C is issued per event by anyco-event-agent-as; nothing depends on a user session."],
+ ["building-2","A system is accountable, not a person","compliance checks, automated decisions",
+  "The audit trail says Ada asked for it. For an automated check, that's the wrong owner.",
+  "The partner token names the <b>event source</b> as the subject and the agent as the actor (<code>act</code>).",
+  "The partner MCP server sees sub = anyco-event-source-app and act = anyco-event-agent-oai."],
+];
+function gapCards(list, el, a, b){
+  $(el).innerHTML=list.map(([icon,title,sub,x,y,tip])=>`
+    <div class="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm" title="${esc(tip)}">
+      <div class="flex items-center gap-2.5"><div class="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-100 text-zinc-700"><i data-lucide="${icon}" class="h-5 w-5"></i></div>
+        <div><div class="text-[14.5px] font-semibold text-zinc-900">${title}</div><div class="text-[12.5px] text-zinc-500">${sub}</div></div></div>
+      <div class="mt-3 flex gap-2 rounded-lg bg-rose-50 px-3 py-2 text-[13px] text-rose-900"><i data-lucide="x" class="mt-0.5 h-4 w-4 shrink-0 text-rose-600"></i><span><b>${a}:</b> ${x}</span></div>
+      <div class="mt-2 flex gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-[13px] text-emerald-900"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"></i><span><b>${b}:</b> ${y}</span></div>
+    </div>`).join("");
+}
+function renderGaps(){
+  gapCards(GAPS,"#gaps-cards","Pattern A","Pattern B / C");
+  gapCards(GAPSB,"#gapsb-cards","Pattern B","Pattern C");
+  icons();
+}
+
+// ---------------- How the code does it (concept screens): one card per token step ----------------
+const CODE={
+ b:[
+  {who:"Your backend",what:"T1 → T2 · one token exchange, as the service app anyco-console-backend-app",file:"server/app.py",code:
+`r = requests.post(f"{AGENT_A_ISSUER}/v1/token",
+                  auth=(BACKEND_CLIENT_ID, BACKEND_CLIENT_SECRET),     # the backend's service app
+                  data={"grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+                        "subject_token": t1,                           # Ada's sign-in token
+                        "subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
+                        "audience": "api://anyco-agent-a-aud",
+                        "scope": "agent-a.invoke"})
+t2 = r.json()["access_token"]                    # act = the backend -> anyco-eng-login-app
+
+# then call the agent with T2
+requests.post(f"https://bedrock-agentcore.{REGION}.amazonaws.com/runtimes/{RUNTIME_A}/invocations",
+              headers={"Authorization": f"Bearer {t2}"}, json=run_input)`},
+  {who:"The agent",what:"T2 → T3 · one token exchange, through AgentCore Identity",file:"agent/main.py",code:
+`# set up once (stack_a.py): an AgentCore Identity provider for the agent's service app
+#   CustomOauth2 · discovery = anyco-gateway-as · clientId/clientSecret = anyco-pr-review-agent-app
+#   onBehalfOfTokenExchangeConfig = {"grantType": "TOKEN_EXCHANGE", actorTokenContent: "NONE"}
+
+@requires_access_token(provider_name="anyco-pr-review-agent-obo", scopes=["pr:read", "pr:review"],
+                       auth_flow="ON_BEHALF_OF_TOKEN_EXCHANGE",
+                       custom_parameters={"audience": "api://anyco-gateway-aud",
+                           "subject_token_type": "urn:ietf:params:oauth:token-type:access_token"})
+async def token_exchange(*, access_token):   # subject = T2: the Runtime bound it to the agent
+    return access_token
+
+@app.entrypoint                              # every invocation of Runtime A (Bearer T2)
+async def run(run_input, context):
+    t3 = await token_exchange()              # T2 -> T3, for this request
+    with MCPClient(lambda: streamablehttp_client(GATEWAY_URL, headers={"Authorization": f"Bearer {t3}"})) as gateway:
+        agent = Agent(model=BedrockModel(...), tools=gateway.list_tools_sync(), system_prompt=PROMPT)
+        async for event in agent.stream_async(run_input.messages[-1].content):
+            ...                              # AG-UI events to the console`},
+ ],
+ c:[
+  {who:"Your backend",what:"T1 → ID-JAG → T2 · two steps, as the AI agent anyco-backend-agent-oai (KMS-signed)",file:"server/app.py · okta_event.py",code:
+`def assertion(client_id, key_arn, kid, audience):       # private_key_jwt, signed in KMS
+    header = {"alg": "RS256", "typ": "JWT", "kid": kid}
+    body = {"iss": client_id, "sub": client_id, "aud": audience, "iat": now, "exp": now + 300, "jti": str(uuid4())}
+    signing_input = f"{b64(header)}.{b64(body)}"
+    sig = kms.sign(KeyId=key_arn, Message=sha256(signing_input), MessageType="DIGEST",
+                   SigningAlgorithm="RSASSA_PKCS1_V1_5_SHA_256")["Signature"]   # the private key stays in KMS
+    return f"{signing_input}.{b64(sig)}"
+
+# step 1 · Okta org server: T1 -> ID-JAG addressed to anyco-agent-b-as
+id_jag = post(f"{OKTA}/oauth2/v1/token", {
+    "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+    "subject_token": t1, "subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
+    "requested_token_type": "urn:ietf:params:oauth:token-type:id-jag",
+    "audience": AGENT_B_ISSUER, "scope": "agent-b.invoke",
+    "client_id": BACKEND_AGENT_ID, "client_assertion_type": JWT_BEARER_ASSERTION,
+    "client_assertion": assertion(BACKEND_AGENT_ID, BACKEND_KMS_KEY, KID, f"{OKTA}/oauth2/v1/token")})
+
+# step 2 · anyco-agent-b-as: ID-JAG -> T2 (it trusts no other server; the ID-JAG is how in)
+t2 = post(f"{AGENT_B_ISSUER}/v1/token", {
+    "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer", "assertion": id_jag,
+    "client_id": BACKEND_AGENT_ID, "client_assertion_type": JWT_BEARER_ASSERTION,
+    "client_assertion": assertion(BACKEND_AGENT_ID, BACKEND_KMS_KEY, KID, f"{AGENT_B_ISSUER}/v1/token")})`},
+  {who:"The agent",what:"T2 → ID-JAG → T3 · two steps, through AgentCore Identity",file:"agent/main.py",code:
+`# set up once (stack_b.py): two AgentCore Identity providers, one per step
+#   anyco-xaa-step1  Okta org server  · TOKEN_EXCHANGE
+#   anyco-xaa-step2  anyco-gateway-as    · JWT_AUTHORIZATION_GRANT
+#   both: clientAuthenticationMethod = PRIVATE_KEY_JWT, signed by the agent's KMS key (no client secret);
+#   Runtime B's role has kms:Sign on that key
+
+@requires_access_token(provider_name="anyco-xaa-step1", scopes=SCOPES,
+                       auth_flow="ON_BEHALF_OF_TOKEN_EXCHANGE", force_authentication=True,
+                       custom_parameters={"subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
+                                          "requested_token_type": "urn:ietf:params:oauth:token-type:id-jag",
+                                          "audience": GATEWAY_ISSUER})
+async def get_id_jag(*, access_token): return access_token       # step 1: T2 -> ID-JAG
+
+@requires_access_token(provider_name="anyco-xaa-step2", scopes=SCOPES,
+                       auth_flow="ON_BEHALF_OF_TOKEN_EXCHANGE", force_authentication=True)
+async def redeem_id_jag(*, access_token): return access_token    # step 2: ID-JAG -> T3
+
+@app.entrypoint                              # every invocation of Runtime B (Bearer T2)
+async def run(run_input, context):
+    id_jag = await get_id_jag()              # subject = T2, bound by the Runtime for this request
+    wat = identity.get_workload_access_token("anyco-pr-agent-xaa-delegate", user_token=id_jag)
+    BedrockAgentCoreContext.set_workload_access_token(wat["workloadAccessToken"])   # subject of step 2 = the ID-JAG
+    t3 = await redeem_id_jag()
+    with MCPClient(lambda: streamablehttp_client(GATEWAY_URL, headers={"Authorization": f"Bearer {t3}"})) as gateway:
+        ...                                  # the Strands agent, as in Pattern A`},
+ ],
+ e:[
+  {who:"Trigger Lambda (the event source)",what:"T1 from Okta · client credentials; it proves who it is with a KMS-signed client assertion",file:"lambdas/event_trigger.py",code:
+`# 1. the client assertion: "I am anyco-event-source-app". Not T1: it only proves who is asking Okta.
+#    (it replaces a client secret; Okta checks it against the public key on the app)
+head = b64({"alg": "RS256", "typ": "JWT", "kid": SOURCE_KID})
+body = b64({"iss": SOURCE_ID, "sub": SOURCE_ID, "aud": token_url, "iat": now, "exp": now + 300, "jti": uuid4()})
+sig = kms.sign(KeyId=SOURCE_KMS_KEY, Message=sha256(f"{head}.{body}"), MessageType="DIGEST",
+               SigningAlgorithm="RSASSA_PKCS1_V1_5_SHA_256")["Signature"]     # the private key stays in KMS
+client_assertion = f"{head}.{body}.{b64(sig)}"
+
+# 2. T1 comes from Okta (anyco-event-agent-as), signed by Okta: client credentials as the event source
+t1 = post(f"{EVENT_AGENT_ISSUER}/v1/token", {
+    "grant_type": "client_credentials", "scope": "agent.invoke",
+    "resource": "api://anyco-event-agent-aud",                 # T1's aud = the agent's resource URL
+    "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+    "client_assertion": client_assertion})["access_token"]
+
+# then call the agent with T1 (OAuth, no IAM permission on the agent)
+post(f"https://bedrock-agentcore.{REGION}.amazonaws.com/runtimes/{EVENT_RUNTIME}/invocations",
+     {"event": event}, headers={"Authorization": f"Bearer {t1}"})`},
+  {who:"The event agent",what:"T1 → ID-JAG → partner token · two steps, through AgentCore Identity",file:"agent_event/main.py",code:
+`# set up once (stack_c.py): two AgentCore Identity providers, one per step
+#   anyco-event-step1  Okta org server    · TOKEN_EXCHANGE
+#   anyco-event-step2  anyco-partner-mcp-as  · JWT_AUTHORIZATION_GRANT
+#   both: clientAuthenticationMethod = PRIVATE_KEY_JWT, signed by the event agent's KMS key
+
+@requires_access_token(provider_name="anyco-event-step1", scopes=["partner:read"],
+                       auth_flow="ON_BEHALF_OF_TOKEN_EXCHANGE", force_authentication=True,
+                       custom_parameters={"subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
+                                          "requested_token_type": "urn:ietf:params:oauth:token-type:id-jag",
+                                          "audience": PARTNER_ISSUER})
+async def get_id_jag(*, access_token): return access_token       # step 1: T1 -> ID-JAG
+
+@requires_access_token(provider_name="anyco-event-step2", scopes=["partner:read"],
+                       auth_flow="ON_BEHALF_OF_TOKEN_EXCHANGE", force_authentication=True)
+async def redeem_id_jag(*, access_token): return access_token    # step 2: ID-JAG -> partner token
+
+@app.entrypoint                              # every invocation of the event agent (Bearer T1)
+async def run(payload, context):
+    id_jag = await get_id_jag()              # subject = T1, bound by the Runtime for this request
+    wat = identity.get_workload_access_token("anyco-event-agent-delegate", user_token=id_jag)
+    BedrockAgentCoreContext.set_workload_access_token(wat["workloadAccessToken"])   # subject of step 2 = the ID-JAG
+    partner_token = await redeem_id_jag()
+    with MCPClient(lambda: streamablehttp_client(PARTNER_MCP_URL,
+                                                 headers={"Authorization": f"Bearer {partner_token}"})) as partner:
+        agent = Agent(model=BedrockModel(...), tools=partner.list_tools_sync(), system_prompt=PROMPT)
+        answer = await agent.invoke_async(json.dumps(payload["event"]))`},
+ ],
+};
+function renderCode(){
+  Object.entries(CODE).forEach(([k,cards])=>{
+    const el=$("#code-"+k); if(!el) return;
+    el.innerHTML=`<div class="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+      <div class="mb-1 flex items-center gap-2"><i data-lucide="file-code" class="h-4 w-4 text-blue-600"></i><span class="text-sm font-semibold text-zinc-900">How the code does it</span>
+        <span class="text-[12px] text-zinc-500">· trimmed from the repo: each place a token is requested</span></div>
+      <div class="mt-3 space-y-3">${cards.map((c,i)=>`
+        <div class="overflow-hidden rounded-lg border border-zinc-200">
+          <div class="flex flex-wrap items-center gap-2 border-b border-zinc-100 bg-zinc-50 px-3 py-2">
+            <span class="flex h-5 w-5 items-center justify-center rounded-full bg-zinc-900 text-[11px] font-bold text-white">${i+1}</span>
+            <span class="text-[13.5px] font-semibold text-zinc-900">${esc(c.who)}</span>
+            <span class="text-[13px] text-zinc-600">${esc(c.what)}</span>
+            <span class="ml-auto font-mono text-[12px] text-zinc-400">${esc(c.file)}</span></div>
+          <pre class="scroll-thin m-0 overflow-x-auto bg-zinc-950 px-4 py-3 font-mono text-[12.5px] leading-relaxed text-zinc-200">${esc(c.code)}</pre>
+        </div>`).join("")}</div></div>`;
+  });
+  icons();
+}
+
+// ---------------- who trusts which authorization server (explain screens) ----------------
+// ---------------- Overview (intro slide) ----------------
+const INTRO=[
+ {k:"A",tone:"indigo",title:"Pattern A · On-behalf-of token exchange",go:"explainb",live:"liveb",
+  solves:["The agent must call tools <b>as the signed-in user</b>.","Every authorization server trusts the one before it, inside one Okta org."],
+  shows:[["Each hop gets a token only for its own audience","Runtime A refuses the sign-in token; the gateway's server refuses to exchange it directly."],
+         ["Okta records every actor","T3's act reads agent → backend → the web app Ada signed in to; Cedar requires the backend in it."],
+         ["The tools act as the user","Ada's reviews are hers: Alan sees only his own."]],
+  how:"RFC 8693 token exchange, twice: your backend, then the agent (through AgentCore Identity)."},
+ {k:"B",tone:"fuchsia",title:"Pattern B · Cross App Access with a user",go:"delegation",live:"livec",
+  solves:["The next server <b>doesn't trust</b> the one before it: another team's server, or a partner's or SaaS provider's.","Trust between servers can't be added, or isn't wanted."],
+  shows:[["The IdP decides each hop","Okta issues an ID-JAG for one target server; machine access says whose token may be the subject, resource connections say where and with which scopes."],
+         ["The agent is a governed Okta identity","Your backend and the agent are Okta AI agents; T3's act names both, then the sign-in app."],
+         ["No secret in the agent","AgentCore Identity runs both steps and KMS signs the client assertion."]],
+  how:"At each hop: token exchange at Okta's org server for an ID-JAG, then a JWT bearer grant at the target server."},
+ {k:"C",tone:"amber",title:"Pattern C · Cross App Access, machine to machine",go:"event",live:"livee",
+  solves:["There's <b>no person</b>: an event, a batch job, a webhook.","A system, not a person, is accountable for the work."],
+  shows:[["An app's own token starts the chain","The event source gets T1 by client credentials; machine access lets it be the subject."],
+         ["The agent acts for the app","The partner token names the event source as sub and the agent as act."],
+         ["Okta limits what's granted","The resource connection grants partner:read only, so the partner's write tool is refused."]],
+  how:"Client credentials for T1, then the same two Cross App Access steps as Pattern B, straight to a partner MCP server."},
+];
+function renderIntro(){
+  const T={indigo:["border-indigo-200","bg-indigo-50","text-indigo-700"],fuchsia:["border-fuchsia-200","bg-fuchsia-50","text-fuchsia-700"],amber:["border-amber-200","bg-amber-50","text-amber-700"]};
+  $("#intro-cards").innerHTML=INTRO.map(c=>{ const [bd,bg,tx]=T[c.tone];
+    return `<div class="flex flex-col rounded-xl border ${bd} bg-white p-5 shadow-sm">
+      <div class="flex items-center gap-2"><span class="flex h-7 w-7 items-center justify-center rounded-lg ${bg} ${tx} text-sm font-bold">${c.k}</span>
+        <span class="text-[15px] font-semibold text-zinc-900">${c.title}</span></div>
+      <div class="mt-4 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Solves for</div>
+      <ul class="mt-1 space-y-1">${c.solves.map(t=>`<li class="text-[13.5px] leading-snug text-zinc-700">${t}</li>`).join("")}</ul>
+      <div class="mt-4 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Shows</div>
+      <ul class="mt-1 space-y-1.5">${c.shows.map(([t,tip])=>`<li class="flex gap-2 text-[13.5px] leading-snug text-zinc-800" title="${esc(tip)}"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"></i><span>${t}</span></li>`).join("")}</ul>
+      <div class="mt-4 rounded-lg ${bg} px-3 py-2 text-[12.5px] ${tx}"><b>How:</b> ${c.how}</div>
+      <div class="mt-auto flex gap-2 pt-4">
+        <button onclick="setView('${c.go}')" class="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50">How it works</button>
+        <button onclick="setView('${c.live}')" class="rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-800">Run it live</button></div>
+    </div>`; }).join("");
+  icons();
+}
+
+// ---------------- who gets which token from which authorization server (concept screens) ----------------
+// one row per token request: [calling entity, Okta app / AI agent, token, authorization server, grant, audience / scope, allowed because, accepted by]
+const TRUST={
+ b:{title:"Pattern A · who gets each token, from which authorization server, and who accepts it",rows:[
+   ["The console (Ada's browser)","anyco-eng-login-app<br><span class='text-zinc-500'>web app</span>","T1","anyco-users-as","authorization code + PKCE","<code>api://anyco-pr-agent-aud</code><br><code>pr-agent.invoke</code>","Ada is assigned to the app; only <code>anyco-engineers</code> get <code>pr-agent.invoke</code>","stays in your backend; no agent accepts it"],
+   ["Your backend","anyco-console-backend-app<br><span class='text-zinc-500'>service app</span>","T2","anyco-agent-a-as","token exchange, subject T1","<code>api://anyco-agent-a-aud</code><br><code>agent-a.invoke</code>","trusts <code>anyco-users-as</code>; rule for this client and <code>anyco-engineers</code>","Runtime A: issuer <code>anyco-agent-a-as</code>, <code>cid</code> = the backend"],
+   ["The agent, through AgentCore Identity","anyco-pr-review-agent-app<br><span class='text-zinc-500'>service app</span>","T3","anyco-gateway-as","token exchange, subject T2","<code>api://anyco-gateway-aud</code><br><code>pr:read pr:review</code>","trusts <code>anyco-agent-a-as</code>; rule for this client and <code>anyco-engineers</code>","the Gateway; Cedar: <code>cid</code> = the agent's app, the backend in <code>act</code>, <code>uid</code>, scope"]]},
+ c:{title:"Pattern B · who gets each token, from which authorization server, and who accepts it",rows:[
+   ["The console (Ada's browser)","anyco-eng-login-app<br><span class='text-zinc-500'>web app</span>","T1","anyco-users-as","authorization code + PKCE","<code>api://anyco-pr-agent-aud</code><br><code>pr-agent.invoke</code>","the same sign-in as Pattern A","stays in your backend"],
+   ["Your backend","anyco-backend-agent-oai<br><span class='text-zinc-500'>AI agent</span>","ID-JAG","Okta org AS","token exchange, subject T1","for <code>anyco-agent-b-as</code><br><code>agent-b.invoke</code>","machine access: <code>anyco-eng-login-app</code> is an allowed caller, T1's <code>aud</code> = this agent's resource URL; resource connection to <code>anyco-agent-b-as</code>","step 2 (the next row)"],
+   ["Your backend","anyco-backend-agent-oai<br><span class='text-zinc-500'>AI agent</span>","T2","anyco-agent-b-as","JWT bearer, assertion = the ID-JAG","<code>api://anyco-agent-b-aud</code><br><code>agent-b.invoke</code>","trusts <b>no</b> other server; JWT Bearer rule for this agent and <code>anyco-engineers</code>","Runtime B: issuer <code>anyco-agent-b-as</code>, <code>cid</code> = the backend agent"],
+   ["The agent, through AgentCore Identity","anyco-pr-review-agent-b-oai<br><span class='text-zinc-500'>AI agent</span>","ID-JAG","Okta org AS","token exchange, subject T2","for <code>anyco-gateway-as</code><br><code>pr:read pr:review</code>","machine access: the backend agent is an allowed caller, T2's <code>aud</code> = this agent's resource URL; resource connection to <code>anyco-gateway-as</code>","step 2 (the next row)"],
+   ["The agent, through AgentCore Identity","anyco-pr-review-agent-b-oai<br><span class='text-zinc-500'>AI agent</span>","T3","anyco-gateway-as","JWT bearer, assertion = the ID-JAG","<code>api://anyco-gateway-aud</code><br><code>pr:read pr:review</code>","doesn't trust <code>anyco-agent-b-as</code>; JWT Bearer rule for this agent and <code>anyco-engineers</code>","the Gateway; Cedar: <code>cid</code> and <code>act</code> = the agent, the backend agent in <code>act</code>, <code>uid</code>, scope"]]},
+ e:{title:"Pattern C · who gets each token, from which authorization server, and who accepts it",rows:[
+   ["Trigger Lambda (the event source)","anyco-event-source-app<br><span class='text-zinc-500'>service app</span>","T1","anyco-event-agent-as","client credentials, <code>private_key_jwt</code> (KMS)","<code>api://anyco-event-agent-aud</code><br><code>agent.invoke</code>","client-credentials rule for this client","the event agent's Runtime: issuer <code>anyco-event-agent-as</code>, <code>cid</code> = the event source"],
+   ["The event agent, through AgentCore Identity","anyco-event-agent-oai<br><span class='text-zinc-500'>AI agent</span>","ID-JAG","Okta org AS","token exchange, subject T1","for <code>anyco-partner-mcp-as</code><br><code>partner:read</code>","machine access: <code>anyco-event-source-app</code> is an allowed caller, T1's <code>aud</code> = this agent's resource URL; resource connection allows <code>partner:read</code> only","step 2 (the next row)"],
+   ["The event agent, through AgentCore Identity","anyco-event-agent-oai<br><span class='text-zinc-500'>AI agent</span>","partner token","anyco-partner-mcp-as","JWT bearer, assertion = the ID-JAG","<code>api://anyco-partner-mcp-aud</code><br><code>partner:read</code>","JWT Bearer rule for this agent","the partner MCP Runtime: <code>cid</code> = the agent; each tool checks <code>act</code> and scope"]]},
+};
+function renderTrust(){
+  const head=["Calling entity","Okta app / AI agent","Gets","From authorization server","Grant","Audience / scope","Allowed because","Accepted by"];
+  Object.entries(TRUST).forEach(([k,t])=>{
+    const el=$("#trust-"+k); if(!el) return;
+    el.innerHTML=`<div class="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+      <div class="mb-3 flex items-center gap-2"><i data-lucide="shield-check" class="h-4 w-4 text-violet-600"></i><span class="text-sm font-semibold text-zinc-900">${t.title}</span></div>
+      <div class="overflow-x-auto rounded-lg border border-zinc-200"><table class="w-full text-[12.5px] leading-snug">
+        <thead><tr class="bg-zinc-50 text-left text-[11px] uppercase tracking-wide text-zinc-500">${head.map(h=>`<th class="px-2.5 py-2 font-semibold">${h}</th>`).join("")}</tr></thead>
+        <tbody>${t.rows.map(([who,client,tok,as,grant,aud,why,acc])=>`<tr class="border-t border-zinc-100 align-top">
+          <td class="px-2.5 py-2 font-medium text-zinc-900">${who}</td>
+          <td class="px-2.5 py-2 font-mono text-[12px] text-zinc-800">${client}</td>
+          <td class="px-2.5 py-2 font-semibold text-zinc-900 whitespace-nowrap">${tok}</td>
+          <td class="px-2.5 py-2"><span class="whitespace-nowrap rounded-full bg-violet-50 px-2 py-0.5 font-mono text-[12px] font-medium text-violet-700 ring-1 ring-violet-200">${as}</span></td>
+          <td class="px-2.5 py-2 text-zinc-700">${grant}</td>
+          <td class="px-2.5 py-2 text-zinc-700">${aud}</td>
+          <td class="px-2.5 py-2 text-zinc-600">${why}</td>
+          <td class="px-2.5 py-2 text-zinc-600">${acc}</td></tr>`).join("")}</tbody></table></div></div>`;
+  });
+  icons();
+}
+
+
+// ---------------- header badges ----------------
+$("#user-btn").onclick=e=>{ e.stopPropagation(); $("#user-menu").classList.toggle("hidden"); };
+document.addEventListener("click",e=>{ if(!e.target.closest("#user-wrap")) $("#user-menu").classList.add("hidden"); });
+function renderUser(){
+  const u=STATUS.user;
+  $("#user-txt").textContent=u?u.sub:"not signed in";
+  $("#user-menu").innerHTML=u
+    ? `<div class="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Okta token (claims)</div>
+       <div class="mt-1.5 space-y-1 text-xs">${["sub","scp","aud","exp"].map(k=>`<div class="flex justify-between gap-3"><span class="text-zinc-400">${k}</span><span class="font-mono text-right break-all">${esc(k==="exp"?new Date(u.exp*1000).toLocaleTimeString():Array.isArray(u[k])?u[k].join(" "):u[k])}</span></div>`).join("")}</div>
+       <p class="mt-2 text-[11px] text-zinc-500">Invokes the agent. Pattern A: the agent exchanges this token with Okta (token exchange). Pattern B: it uses Cross App Access (ID-JAG).</p>
+       <button onclick="logout()" class="mt-2 w-full rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50">Sign out</button>`
+    : `<a href="/login?back=${view}" class="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-orange-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-orange-700"><i data-lucide="log-in" class="h-3.5 w-3.5"></i> Login with Okta</a>`;
+  icons();
+}
+async function logout(){ MYTOKEN=null; MYTOKEN_C=null; MYID_C=null; sessionStorage.setItem("afterLogout", view); location.href="/logout"; }
+// every POST: JSON, plus the session's CSRF token (the server refuses POSTs without it)
+const post=(url,body)=>fetch(url,{method:"POST",headers:{"Content-Type":"application/json","X-CSRF-Token":STATUS.csrf||""},body:JSON.stringify(body)});
+async function refresh(){
+  STATUS=await (await fetch("/api/status")).json();
+  $("#acct-txt").textContent=`${STATUS.account} · ${STATUS.region}`;
+  renderLiveE(); if((STATUS.deployed_e||{}).runtime && !LASTEVENT) loadLastEvent().then(ok=>ok&&renderLiveE()).catch(()=>{});
+  renderUser(); renderSigninB(); renderSigninC();
+  if((STATUS.deployed||{}).policy_engine) fetch("/api/policies").then(r=>r.json()).then(j=>POLICIES=j.policies||{}).catch(()=>{});
+}
+$("#chat-input-b").addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); sendB(); } });
+$("#btn-send-b").onclick=sendB;
+$("#chat-input-c").addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); sendC(); } });
+$("#btn-send-c").onclick=sendC;
+(()=>{ const R=$("#agui-svg-c"); R.querySelectorAll(".agui-node[data-node]").forEach(n=>n.classList.add("dim"));
+  ["user","okta","c:t1","c:backend","c:t2","c:agent","c:step1","c:idjag","c:step2","c:gateway","c:interceptor","c:cedar","c:tools","jwt","c:token"].forEach(k=>R.querySelector(`.agui-node[data-node="${k}"]`)?.classList.remove("dim")); })();
+(()=>{ const R=$("#agui-svg-b"); R.querySelectorAll(".agui-node[data-node]").forEach(n=>n.classList.add("dim"));
+  ["user","okta","b:t1","b:backend","b:agent","exchange","b:gateway","b:interceptor","b:cedar","b:tools","jwt","b:obotoken"].forEach(k=>R.querySelector(`.agui-node[data-node="${k}"]`)?.classList.remove("dim")); })();
+renderExplainB(); renderExplainC(); renderExplainE(); renderTrust(); renderCode(); renderGaps(); renderIntro();
+const validView=h=>NAV.some(n=>n.id===h);
+window.addEventListener("hashchange",()=>{ const h=location.hash.slice(1); if(validView(h) && h!==view) setView(h); });
+const _back=sessionStorage.getItem("afterLogout"); if(_back){ sessionStorage.removeItem("afterLogout"); history.replaceState(null,"","#"+_back); }
+setView(validView(location.hash.slice(1)) ? location.hash.slice(1) : "intro"); refresh();
+</script>
+</body>
+</html>

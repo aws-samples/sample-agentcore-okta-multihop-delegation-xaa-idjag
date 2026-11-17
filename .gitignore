@@ -1,0 +1,28 @@
+# secrets and per-environment state (never commit)
+.env
+.env.*
+!.env.example
+state.json
+
+# deploy logs, captured calls, tokens, screenshots, packaged agent
+build/
+*.zip
+*.log
+
+# local tooling
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+.ipynb_checkpoints/
+.vscode/
+.idea/
+
+# executed notebook copies (their outputs hold real token claims) stay out of git
+notebooks/*.executed.ipynb
+
+# demo recordings: large binaries and their capture scripts stay local, except the published walkthrough
+video/*
+*.mp4
+!video/AgentCore-Okta-three-patterns.mp4

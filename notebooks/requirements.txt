@@ -1,0 +1,7 @@
+# For the notebooks: install into the repo's .venv (the notebooks import the repo's config.py).
+#   .venv/bin/pip install -r notebooks/requirements.txt
+bedrock-agentcore==1.24.0     # the @requires_access_token decorator and IdentityClient
+boto3==1.43.108               # needs the AgentCore Identity KMS client assertion (privateKeyJwtConfig)
+requests==2.34.2
+cryptography==50.0.2          # kms_keys.py, used by the Pattern C notebook
+jupyterlab==4.6.6

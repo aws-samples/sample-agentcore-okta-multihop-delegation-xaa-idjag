@@ -1,0 +1,11 @@
+# Console (server/app.py) and setup / deploy scripts, pinned to the tested versions.
+# The agent's own deps: agent/requirements.txt.
+fastapi==0.142.2
+uvicorn==0.54.0
+requests==2.34.2
+httpx==0.28.1
+boto3==1.43.108
+cryptography==50.0.2       # kms_keys.py: public JWK from the KMS keys
+urllib3==2.8.0
+# test scripts only (scripts/ui_check_*.py): Chrome automation
+playwright==1.63.0
